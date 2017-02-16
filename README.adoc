@@ -1,0 +1,13 @@
+
+= ECX Client
+
+This project aims to build a Python client for Catalogic Software's 
+https://catalogicsoftware.com/products/ecx/[ECX] product. 
+
+This repo holds two components. 
+
+- An SDK that can be used by anyone interested in integrating ECX
+  operations in their workflow.
+
+- A command line utility with which ECX operations can be performed.
+
