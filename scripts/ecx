@@ -55,6 +55,7 @@ class EcxSession(object):
             os.makedirs(self.cfgdir)
 
         self.conn = requests.Session()
+        self.conn.verify = False
         self.conn.hooks.update({'response': raise_response_error})
 
         if self.password is None:
