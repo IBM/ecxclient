@@ -40,3 +40,9 @@ $ ./ecx --user admin --passwd <PASSWORD> user list
 # To connect to a different host
 $ ./ecx --url https://1.2.3.4:8443 --user admin --passwd <PASSWORD> user list
 ....
+
+== Notes
+
+- After a successful login, the command "remembers" the login session
+  so there is no need to support user name and password with every
+  run.
