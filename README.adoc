@@ -34,5 +34,9 @@ Commands:
   identity  Identity resource.
   user      User resource.
 
+# This connects to ECX on localhost.
 $ ./ecx --user admin --passwd <PASSWORD> user list
+
+# To connect to a different host
+$ ./ecx --url https://1.2.3.4:8443 --user admin --passwd <PASSWORD> user list
 ....
