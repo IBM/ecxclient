@@ -11,3 +11,26 @@ This repo holds two components.
 
 - A command line utility with which ECX operations can be performed.
 
+== Usage
+
+....
+$ git clone --recursive https://draghuram@github.com/catalogicsoftware/ecxclient.git
+
+$ cd ecxclient/scripts
+$ ./ecx --help
+
+Usage: ecx [OPTIONS] COMMAND [ARGS]...
+
+  ecx is a command line tool with which ECX operations can be carried out.
+
+Options:                                                                                                                                       --url URL          ECX url.
+  --user USERNAME    ECX user.
+  --passwd PASSWORD  ECX password.
+  -v, --verbose      Enables verbose mode.
+  --version          Show the version and exit.
+  --help             Show this message and exit.
+
+Commands:
+  identity  Identity resource.
+  user      User resource.
+....
