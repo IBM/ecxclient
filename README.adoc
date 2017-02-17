@@ -33,4 +33,6 @@ Options:                                                                        
 Commands:
   identity  Identity resource.
   user      User resource.
+
+$ ./ecx --user admin --passwd <PASSWORD> user list
 ....
