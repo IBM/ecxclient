@@ -14,7 +14,7 @@ This repo holds two components.
 == Usage
 
 ....
-$ git clone --recursive https://draghuram@github.com/catalogicsoftware/ecxclient.git
+$ git clone --recursive https://github.com/catalogicsoftware/ecxclient.git
 
 $ cd ecxclient/scripts
 $ ./ecx --help
