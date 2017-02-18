@@ -12,7 +12,6 @@ dependencies_dir = os.path.join(script_dir, "..", "dependencies")
 
 sys.path.insert(0, os.path.join(dependencies_dir, "click"))
 sys.path.insert(0, os.path.join(dependencies_dir, "requests"))
-sys.path.insert(0, os.path.join(dependencies_dir, "tablib"))
 
 import click
 import requests
