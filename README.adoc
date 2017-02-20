@@ -23,16 +23,16 @@ Usage: ecx [OPTIONS] COMMAND [ARGS]...
 
   ecx is a command line tool with which ECX operations can be carried out.
 
-Options:                                                                                                                                       --url URL          ECX url.
+Options:
+  --url URL          ECX url.
   --user USERNAME    ECX user.
   --passwd PASSWORD  ECX password.
-  -v, --verbose      Enables verbose mode.
   --version          Show the version and exit.
   --help             Show this message and exit.
 
 Commands:
-  identity  Identity resource.
-  user      User resource.
+  job   Job resource.
+  user  User resource.
 
 # This connects to ECX on localhost.
 $ ./ecx --user admin --passwd <PASSWORD> user list
