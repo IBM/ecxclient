@@ -5,11 +5,14 @@ import ConfigParser
 import json
 import os
 import sys
+import tempfile
 import traceback
 
 script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-dependencies_dir = os.path.join(script_dir, "..", "dependencies")
+root_dir = os.path.abspath(os.path.join(script_dir, ".."))
+dependencies_dir = os.path.join(root_dir, "dependencies")
 
+sys.path.insert(0, root_dir)
 sys.path.insert(0, os.path.join(dependencies_dir, "click"))
 sys.path.insert(0, os.path.join(dependencies_dir, "requests"))
 
@@ -17,36 +20,17 @@ import click
 import requests
 from requests.auth import HTTPBasicAuth
 
-def remove_links(obj):
-    if type(obj) is dict:
-        if obj.has_key("links"):
-            del obj["links"]
+from util import util
 
-        for k, v in obj.iteritems():
-            remove_links(v)
-
-        return
-
-    if type(obj) is list:
-        for item in obj:
-            remove_links(item)
-
-        return
-
-    return
-
-def raise_response_error(r, *args, **kwargs):
-    r.raise_for_status()
-    obj = json.loads(r.content)
-    remove_links(obj)
-    r.resp_without_links = obj
+class Context(object):
+    def __init__(self):
+        pass
 
 class EcxSession(object):
-    def __init__(self, url, username, password, verbose):
+    def __init__(self, url, username, password):
         self.url = url
         self.username = username
         self.password = password
-        self.verbose = verbose
         self.sessionid = None
         self.cfgfile = os.path.join(click.get_app_dir("ecxcli"), 'config.ini')
         self.cfgdir = os.path.dirname(self.cfgfile)
@@ -55,7 +39,7 @@ class EcxSession(object):
 
         self.conn = requests.Session()
         self.conn.verify = False
-        self.conn.hooks.update({'response': raise_response_error})
+        self.conn.hooks.update({'response': util.raise_response_error})
 
         if self.password is None:
             self.use_existing_session()
@@ -89,67 +73,55 @@ class EcxSession(object):
     def __repr__(self):
         return 'EcxSession: user: %s' % self.username
 
-pass_ecx_session = click.make_pass_decorator(EcxSession)
+pass_context = click.make_pass_decorator(Context, ensure=True)
+cmd_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'commands'))
 
-class EcxCmd(object):
-    def __init__(self, *args, **kwargs):
-        self.ecx_session = kwargs.pop('ecx_session')
-        super(EcxCmd, self).__init__()
+class MyCLI(click.MultiCommand):
+    def list_commands(self, ctx):
+        rv = []
+        for filename in os.listdir(cmd_folder):
+            if filename.endswith('.py') and filename.startswith('cmd_'):
+                rv.append(filename[4:-3])
+        rv.sort()
+        return rv
 
-    def invoke_get(self, url):
-        r = self.ecx_session.conn.get(url)
-        click.echo_via_pager(json.dumps(r.resp_without_links, indent=4))
+    def get_command(self, ctx, name):
+        try:
+            if sys.version_info[0] == 2:
+                name = name.encode('ascii', 'replace')
 
-class UserCmd(EcxCmd):
-    def __init__(self, *args, **kwargs):
-        super(UserCmd, self).__init__(*args, **kwargs)
+            mod = __import__('commands.cmd_' + name, None, None, ['cli'])
+        except ImportError:
+            traceback.print_exc()
+            return
 
-    def list(self, **kwargs):
-        self.invoke_get("%s/api/security/user" % self.ecx_session.url)
+        return mod.cli
 
-class IdentityCmd(EcxCmd):
-    def __init__(self, *args, **kwargs):
-        super(IdentityCmd, self).__init__(*args, **kwargs)
 
-    def list(self, **kwargs):
-        self.invoke_get("%s/api/identity/user" % self.ecx_session.url)
-
-@click.group()
+@click.command(cls=MyCLI)
 @click.option('--url', envvar='ECX_URL', default='http://localhost:8082', metavar='URL', help='ECX url.')
 @click.option('--user', envvar='ECX_USER', default='admin', metavar='USERNAME', help='ECX user.')
 @click.option('--passwd', envvar='ECX_PASSWD', default=None, metavar='PASSWORD', help='ECX password.')
-@click.option('--verbose', '-v', is_flag=True, help='Enables verbose mode.')
 @click.version_option('1.0')
-@click.pass_context
-def cli(ctx, url, user, passwd, verbose):
+@pass_context
+def cli(ctx, url, user, passwd):
     """ecx is a command line tool with which ECX operations
     can be carried out.
     """
 
-    ctx.obj = EcxSession(url, user, passwd, verbose)
+    ctx.ecx_session = EcxSession(url, user, passwd)
 
-@cli.command()
-@click.argument('op')
-@click.pass_obj
-def user(ecx_session, **kwargs):
-    """User resource.
-    """
+# cli = MyCLI(help='Script to perform ECX operations. ')
 
-    getattr(UserCmd(ecx_session=ecx_session), kwargs['op'])(**kwargs)
-
-@cli.command()
-@click.argument('op')
-@click.pass_obj
-def identity(ecx_session, **kwargs):
-    """Identity resource.
-    """
-
-    getattr(IdentityCmd(ecx_session=ecx_session), kwargs['op'])(**kwargs)
+def init_logging():
+    pass
 
 if __name__ == '__main__':
+    init_logging()
+
     try:
         cli()
     except Exception as e:
         traceback.print_exc()
-
         click.secho(str(e), fg='red')
+        sys.exit(1)
