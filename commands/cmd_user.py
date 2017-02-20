@@ -8,7 +8,6 @@ class UserCmd(EcxCmd):
         super(UserCmd, self).__init__(*args, **kwargs)
 
     def list(self, **kwargs):
-        print self.ecx_session
         self.invoke_get("%s/api/security/user" % self.ecx_session.url)
 
 @click.command()
