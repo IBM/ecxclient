@@ -1,7 +1,7 @@
 import sys
 import click
 
-from util.util import EcxCmd
+from src.util import EcxCmd
 
 class UserCmd(EcxCmd):
     def __init__(self, *args, **kwargs):
