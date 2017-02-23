@@ -3,6 +3,7 @@
 
 import ConfigParser
 import json
+import logging
 import os
 import sys
 import tempfile
@@ -19,6 +20,7 @@ sys.path.insert(0, os.path.join(dependencies_dir, "requests"))
 import click
 import requests
 from requests.auth import HTTPBasicAuth
+from requests.exceptions import HTTPError
 
 from src import client
 from src.client import pass_context
@@ -64,7 +66,9 @@ def cli(ctx, url, user, passwd):
 # cli = MyCLI(help='Script to perform ECX operations. ')
 
 def init_logging():
-    pass
+    fd, logfile = tempfile.mkstemp(suffix='.txt', prefix='ecxclient')
+    os.close(fd)
+    logging.basicConfig(filename=logfile, level=logging.DEBUG, format='%(asctime)-15s: %(levelname)s: %(message)s')
 
 if __name__ == '__main__':
     init_logging()
@@ -72,6 +76,11 @@ if __name__ == '__main__':
     try:
         cli()
     except Exception as e:
-        traceback.print_exc()
+        logging.error(traceback.format_exc())
         click.secho(str(e), fg='red')
+        if isinstance(e, HTTPError) and e.response.content:
+            logging.error(e.response.content)
+            d = json.loads(e.response.content)
+            click.secho('%s (%s)' % (d.get('id', 'Unknown'), d.get('description', 'Unknown')), fg='red')
+
         sys.exit(1)
