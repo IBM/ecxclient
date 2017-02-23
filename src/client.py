@@ -4,6 +4,7 @@ import os
 
 import click
 import requests
+from requests.auth import HTTPBasicAuth
 
 import util
 
