@@ -10,21 +10,22 @@ import tempfile
 import traceback
 
 script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-root_dir = os.path.abspath(os.path.join(script_dir, ".."))
+parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+root_dir = os.path.abspath(os.path.join(parent_dir, ".."))
+sdk_dir = os.path.join(root_dir, "sdk")
 dependencies_dir = os.path.join(root_dir, "dependencies")
 
-sys.path.insert(0, root_dir)
+# sys.path.insert(0, sdk_dir)
+sys.path.insert(0, parent_dir)
 sys.path.insert(0, os.path.join(dependencies_dir, "click"))
 sys.path.insert(0, os.path.join(dependencies_dir, "requests"))
+sys.path.insert(0, root_dir)
 
 import click
-import requests
-from requests.auth import HTTPBasicAuth
 from requests.exceptions import HTTPError
 
-from src import client
-from src.client import pass_context
-from src import util
+from sdk import client
+import util
 
 cmd_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'commands'))
 
@@ -55,7 +56,7 @@ class MyCLI(click.MultiCommand):
 @click.option('--user', envvar='ECX_USER', default='admin', metavar='USERNAME', help='ECX user.')
 @click.option('--passwd', envvar='ECX_PASSWD', default=None, metavar='PASSWORD', help='ECX password.')
 @click.version_option('1.0')
-@pass_context
+@util.pass_context
 def cli(ctx, url, user, passwd):
     """ecx is a command line tool with which ECX operations
     can be carried out.
@@ -70,6 +71,21 @@ def init_logging():
     os.close(fd)
     logging.basicConfig(filename=logfile, level=logging.DEBUG, format='%(asctime)-15s: %(levelname)s: %(message)s')
 
+def process_http_error(e):
+    if not isinstance(e, HTTPError):
+        return
+
+    if not e.response.content:
+        return
+
+    logging.error(e.response.content)
+
+    try:
+        d = json.loads(e.response.content)
+        click.secho('%s (%s)' % (d.get('id', 'Unknown'), d.get('description', 'Unknown')), fg='red')
+    except Exception:
+        pass
+
 if __name__ == '__main__':
     init_logging()
 
@@ -77,10 +93,9 @@ if __name__ == '__main__':
         cli()
     except Exception as e:
         logging.error(traceback.format_exc())
+
         click.secho(str(e), fg='red')
-        if isinstance(e, HTTPError) and e.response.content:
-            logging.error(e.response.content)
-            d = json.loads(e.response.content)
-            click.secho('%s (%s)' % (d.get('id', 'Unknown'), d.get('description', 'Unknown')), fg='red')
+
+        process_http_error(e)
 
         sys.exit(1)
