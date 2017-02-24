@@ -16,29 +16,14 @@ This repo holds two components.
 ....
 $ git clone --recursive https://github.com/catalogicsoftware/ecxclient.git
 
-$ cd ecxclient/scripts
+$ cd ecxclient/cli/bin
 $ ./ecx --help
 
-Usage: ecx [OPTIONS] COMMAND [ARGS]...
-
-  ecx is a command line tool with which ECX operations can be carried out.
-
-Options:
-  --url URL          ECX url.
-  --user USERNAME    ECX user.
-  --passwd PASSWORD  ECX password.
-  --version          Show the version and exit.
-  --help             Show this message and exit.
-
-Commands:
-  job   Job resource.
-  user  User resource.
-
 # This connects to ECX on localhost.
-$ ./ecx --user admin --passwd <PASSWORD> user list
+$ ./ecx --user admin --passwd <PASSWORD> job list
 
-# To connect to a different host
-$ ./ecx --url https://1.2.3.4:8443 --user admin --passwd <PASSWORD> user list
+# To connect to a different host. Default user is "admin".
+$ ./ecx --url https://1.2.3.4:8443 --passwd <PASSWORD> job list
 ....
 
 == Notes
