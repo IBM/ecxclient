@@ -1,5 +1,6 @@
 
 import json
+import logging
 import sys
 import time
 
@@ -8,15 +9,28 @@ import click
 import util
 from sdk.client import JobAPI
 
-def poll(self, job):
-    jobapi = JobAPI(self.ecx_session)
+def print_job_log(log_entries):
+    for entry in log_entries:
+        logtype = entry['type']
+        line = '%s %s' % (time.ctime(entry['logTime']/1000).strip(), entry['message'])
 
-    status = job.status
-    print "job status: %s" % status
+        if logtype == 'ERROR':
+            click.secho(line, fg='red')
+        elif logtype == 'WARN':
+            click.secho(line, fg='amber')
+        else:
+            click.echo(line)
+
+def monitor(jobapi, job, interval_sec=10):
+    status = job['status']
+    logging.info("job status: %s" % status)
     
     active = False
     counter = 0
 
+    jobsession_id = int(job['lastrun']['sessionId'])
+    log_entries_index = 0
+    page_size = 25
     while True:
         if active and (status == "PENDING"):
             # Job moved from active state(s) to PENDING so
@@ -28,14 +42,19 @@ def poll(self, job):
 
         if (not active) and (status != "PENDING"):
             # Job moved from PENDING to other active states.
-            jobIsActive = true
+            active = True
 
-        print "    %d: Sleeping for 30 seconds..." % counter
-        time.sleep(30)
+        log_entries = jobapi.get_log_entries(jobsession_id, page_size, log_entries_index)
+        log_entries_index += len(log_entries)
+        print_job_log(log_entries)
+
+        time.sleep(interval_sec)
         counter = counter + 1
 
         status = jobapi.status(job['id'])['currentStatus']
-        print "job status: %s" % status
+        logging.info("job status: %s" % status)
+
+    print_job_log(jobapi.get_log_entries(jobsession_id, page_size, log_entries_index))
 
     return status
 
@@ -66,9 +85,14 @@ def info(ctx, jobid, **kwargs):
     util.print_response(resp)
 
 @cli.command()
+@click.option('-i', type=click.INT, metavar='interval_sec', default=10, help='Interval, in seconds, for polling.')
+@click.option('--mon', is_flag=True, help='Enables job monitoring.')
 @click.argument('jobid', type=click.INT)
-@click.option('--resp/--no-resp', default=False, help='Show POST response.')
 @util.pass_context
 def start(ctx, jobid, **kwargs):
-    resp = JobAPI(ecx_session=ctx.ecx_session).start(jobid)
-    util.print_response(resp)
+    jobapi = JobAPI(ecx_session=ctx.ecx_session)
+    job = jobapi.start(jobid)
+    if kwargs['mon']:
+        monitor(jobapi, job, kwargs['i'])
+    else:
+        util.print_response(job)

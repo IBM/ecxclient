@@ -9,7 +9,8 @@ from requests.auth import HTTPBasicAuth
 
 resource_to_endpoint = {
     'job': 'endeavour/job',
-    'user': 'security/user'
+    'log': 'endeavour/log',
+    'user': 'security/user',
 }
 
 def build_url(baseurl, restype=None, resid=None, path=None):
@@ -78,10 +79,10 @@ class EcxSession(object):
     def __repr__(self):
         return 'EcxSession: user: %s' % self.username
 
-    def get(self, restype=None, resid=None, path=None):
+    def get(self, restype=None, resid=None, path=None, params={}):
         url = build_url(self.api_url, restype, resid, path)
 
-        return json.loads(self.conn.get(url).content)
+        return json.loads(self.conn.get(url, params=params).content)
 
     def post(self, restype=None, resid=None, path=None, data={}, params={}):
         url = build_url(self.api_url, restype, resid, path)
@@ -111,7 +112,16 @@ class JobAPI(EcxAPI):
     def status(self, jobid):
         return self.ecx_session.get(restype=self.restype, resid=jobid, path='status')
 
+    # Accept a callback that can be called every time job status is polled.
     def start(self, jobid):
-         return self.ecx_session.post(restype=self.restype, resid=jobid, params={'action': 'start'})
+        return self.ecx_session.post(restype=self.restype, resid=jobid, params={'action': 'start'})
+
+    def get_log_entries(self, jobsession_id, page_size=25, page_start_index=0):
+        resp = self.ecx_session.get(restype='log', path='job',
+                                    params={'pageSize': page_size, 'pageStartIndex': page_start_index,
+                                            'sort': '[{"property":"logTime","direction":"ASC"}]',
+                                            'filter': '[{"property":"jobsessionId","value":"%d"}]'%jobsession_id})
+
+        return resp['logs']
 
 
