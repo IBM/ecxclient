@@ -17,7 +17,7 @@ def print_job_log(log_entries):
         if logtype == 'ERROR':
             click.secho(line, fg='red')
         elif logtype == 'WARN':
-            click.secho(line, fg='amber')
+            click.secho(line, fg='magenta')
         else:
             click.echo(line)
 
