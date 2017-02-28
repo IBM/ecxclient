@@ -4,3 +4,6 @@
 [submodule "dependencies/click"]
 	path = dependencies/click
 	url = https://github.com/pallets/click.git
+[submodule "dependencies/python-tabulate"]
+	path = dependencies/python-tabulate
+	url = https://bitbucket.org/astanin/python-tabulate.git

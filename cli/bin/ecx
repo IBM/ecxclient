@@ -19,6 +19,7 @@ dependencies_dir = os.path.join(root_dir, "dependencies")
 sys.path.insert(0, parent_dir)
 sys.path.insert(0, os.path.join(dependencies_dir, "click"))
 sys.path.insert(0, os.path.join(dependencies_dir, "requests"))
+sys.path.insert(0, os.path.join(dependencies_dir, "python-tabulate"))
 sys.path.insert(0, root_dir)
 
 import click
@@ -55,14 +56,16 @@ class MyCLI(click.MultiCommand):
 @click.option('--url', envvar='ECX_URL', default='http://localhost:8082', metavar='URL', help='ECX url.')
 @click.option('--user', envvar='ECX_USER', default='admin', metavar='USERNAME', help='ECX user.')
 @click.option('--passwd', envvar='ECX_PASSWD', default=None, metavar='PASSWORD', help='ECX password.')
+@click.option('--json', is_flag=True, help='Show raw json.')
 @click.version_option('1.0')
 @util.pass_context
-def cli(ctx, url, user, passwd):
+def cli(ctx, url, user, passwd, json):
     """ecx is a command line tool with which ECX operations
     can be carried out.
     """
 
     ctx.ecx_session = client.EcxSession(url, user, passwd)
+    ctx.json = json
 
 # cli = MyCLI(help='Script to perform ECX operations. ')
 

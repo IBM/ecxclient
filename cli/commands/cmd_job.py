@@ -5,6 +5,7 @@ import sys
 import time
 
 import click
+from tabulate import tabulate
 
 import util
 from sdk.client import JobAPI
@@ -71,11 +72,26 @@ def cli(ctx, **kwargs):
 
     pass
 
+def format_last_run_time(run_time):
+    if not run_time: return None
+
+    return time.ctime(int(run_time)/1000)
+
 @cli.command()
 @util.pass_context
 def list(ctx, **kwargs):
-    resp = JobAPI(ecx_session=ctx.ecx_session).list()
-    util.print_response(resp)
+    jobs = JobAPI(ecx_session=ctx.ecx_session).list()
+    if ctx.json:
+        util.print_response(jobs)
+        return
+
+    job_table_info = [(x['name'], x['id'], x['status'], format_last_run_time(x['lastRunTime'])) for x in jobs]
+    if not job_table_info:
+        return
+
+    print
+    print tabulate(job_table_info, headers=["Name","ID", "Status", "Last run"])
+    print
 
 @cli.command()
 @click.argument('jobid', type=click.INT)
