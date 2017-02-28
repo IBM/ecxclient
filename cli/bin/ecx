@@ -46,7 +46,7 @@ class MyCLI(click.MultiCommand):
 
             mod = __import__('commands.cmd_' + name, None, None, ['cli'])
         except ImportError:
-            traceback.print_exc()
+            logging.error(traceback.format_exc())
             return
 
         return mod.cli
