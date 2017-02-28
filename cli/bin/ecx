@@ -97,7 +97,8 @@ if __name__ == '__main__':
     except Exception as e:
         logging.error(traceback.format_exc())
 
-        click.secho(str(e), fg='red')
+        exctype, value = sys.exc_info()[:2]
+        click.secho(traceback.format_exception_only(exctype, value)[0], fg='red')
 
         process_http_error(e)
 

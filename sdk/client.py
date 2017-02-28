@@ -11,13 +11,19 @@ resource_to_endpoint = {
     'job': 'endeavour/job',
     'log': 'endeavour/log',
     'user': 'security/user',
+    'identityuser': 'identity/user',
+    'appserver': 'appserver',
+}
+
+resource_to_listfield = {
+    'identityuser': 'users',
 }
 
 def build_url(baseurl, restype=None, resid=None, path=None):
     url = baseurl
 
     if restype is not None:
-        url = url + "/" + resource_to_endpoint[restype]
+        url = url + "/" + resource_to_endpoint.get(restype, restype)
 
     if resid is not None:
         url = url + "/" + str(resid)
@@ -97,7 +103,7 @@ class EcxAPI(object):
     def __init__(self, ecx_session, restype=None):
         self.ecx_session = ecx_session
         self.restype = restype
-        self.list_field = self.restype + 's'
+        self.list_field = resource_to_listfield.get(restype, self.restype + 's')
 
     def get(self, resid):
          return self.ecx_session.get(restype=self.restype, resid=resid)
@@ -124,4 +130,15 @@ class JobAPI(EcxAPI):
 
         return resp['logs']
 
+class UserIdentityAPI(EcxAPI):
+    def __init__(self, ecx_session):
+        super(UserIdentityAPI, self).__init__(ecx_session, 'identityuser')
+
+class AppserverAPI(EcxAPI):
+    def __init__(self, ecx_session):
+        super(AppserverAPI, self).__init__(ecx_session, 'appserver')
+
+class VsphereAPI(EcxAPI):
+    def __init__(self, ecx_session):
+        super(VsphereAPI, self).__init__(ecx_session, 'vsphere')
 
