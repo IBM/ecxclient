@@ -25,10 +25,11 @@ def build_url(baseurl, restype=None, resid=None, path=None, endpoint=None):
 
     if restype is not None:
         ep = resource_to_endpoint.get(restype, None)
-        if not ep and endpoint is not None:
-            ep = endpoint
-        else:
-            ep = restype
+        if not ep:
+            if endpoint is not None:
+                ep = endpoint
+            else:
+                ep = restype
 
         url = url + "/" + ep
 
