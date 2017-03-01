@@ -8,6 +8,18 @@ import click
 import requests
 from requests.auth import HTTPBasicAuth
 
+try:
+    import http.client as http_client
+except ImportError:
+    # Python 2
+    import httplib as http_client
+
+# http://stackoverflow.com/questions/10588644/how-can-i-see-the-entire-http-request-thats-being-sent-by-my-python-application
+# Uncomment this to see requests and responses.
+# TODO: We need better way and we should log requests and responses in
+# log file.
+# http_client.HTTPConnection.debuglevel = 1
+
 resource_to_endpoint = {
     'job': 'endeavour/job',
     'log': 'endeavour/log',
@@ -68,6 +80,8 @@ class EcxSession(object):
             self.login()
 
         self.conn.headers.update({'X-Endeavour-Sessionid': self.sessionid})
+        self.conn.headers.update({'Content-Type': 'application/json'})
+        self.conn.headers.update({'Accept': 'application/json'})
 
     def use_existing_session(self):
         parser = ConfigParser.RawConfigParser()
@@ -93,14 +107,17 @@ class EcxSession(object):
     def __repr__(self):
         return 'EcxSession: user: %s' % self.username
 
-    def get(self, restype=None, resid=None, path=None, params={}, endpoint=None):
-        url = build_url(self.api_url, restype, resid, path, endpoint)
+    def get(self, restype=None, resid=None, path=None, params={}, endpoint=None, url=None):
+        if url is None:
+            url = build_url(self.api_url, restype, resid, path, endpoint)
 
         return json.loads(self.conn.get(url, params=params).content)
 
-    def post(self, restype=None, resid=None, path=None, data={}, params={}, endpoint=None):
-        url = build_url(self.api_url, restype, resid, path, endpoint)
-        r = self.conn.post(url, data=data, params=params)
+    def post(self, restype=None, resid=None, path=None, data={}, params={}, endpoint=None, url=None):
+        if url is None:
+            url = build_url(self.api_url, restype, resid, path, endpoint)
+
+        r = self.conn.post(url, json=data, params=params)
 
         if r.content:
             return json.loads(r.content)
@@ -127,8 +144,32 @@ class JobAPI(EcxAPI):
         return self.ecx_session.get(restype=self.restype, resid=jobid, path='status')
 
     # TODO: Accept a callback that can be called every time job status is polled.
+    # The process of job start is different depending on whether jobs have storage
+    # workflows.
     def start(self, jobid):
-        return self.ecx_session.post(restype=self.restype, resid=jobid, params={'action': 'start'})
+        job = self.ecx_session.get(restype=self.restype, resid=jobid)
+
+        links = job['links']
+        if 'start' not in links:
+            raise Exception("'start' link not found for job: %d" % jobid)
+
+        start_link = links['start']
+        reqdata = {}
+
+        if 'schema' in start_link:
+            # The job has storage profiles.
+            schema_data = self.ecx_session.get(url=start_link['schema'])
+            workflows = schema_data['parameter']['actionname']['values']
+            if not workflows:
+                raise Exception("No workflows for job: %d" % jobid)
+            if len(workflows) > 1:
+                # TODO: This is really not an error. User needs to supply
+                # workflow ID to be used in running the job.
+                raise Exception("More than one workflow has been found for job: %d" % jobid)
+
+            reqdata["actionname"] = workflows[0]['value']
+
+        return self.ecx_session.post(url=start_link['href'], data=reqdata)
 
     def get_log_entries(self, jobsession_id, page_size=25, page_start_index=0):
         resp = self.ecx_session.get(restype='log', path='job',
