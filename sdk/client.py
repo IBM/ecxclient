@@ -87,7 +87,6 @@ class EcxSession(object):
         parser = ConfigParser.RawConfigParser()
         parser.add_section(self.username)
         parser.set(self.username, 'sessionid', self.sessionid)
-        parser.set(self.username, 'lastused', time.ctime())
 
         parser.write(open(self.cfgfile, 'wb'))
 
@@ -127,7 +126,7 @@ class JobAPI(EcxAPI):
     def status(self, jobid):
         return self.ecx_session.get(restype=self.restype, resid=jobid, path='status')
 
-    # Accept a callback that can be called every time job status is polled.
+    # TODO: Accept a callback that can be called every time job status is polled.
     def start(self, jobid):
         return self.ecx_session.post(restype=self.restype, resid=jobid, params={'action': 'start'})
 

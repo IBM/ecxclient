@@ -90,7 +90,7 @@ def list(ctx, **kwargs):
         return
 
     print
-    print tabulate(job_table_info, headers=["Name","ID", "Status", "Last run"])
+    click.echo_via_pager(tabulate(job_table_info, headers=["Name","ID", "Status", "Last run"]))
     print
 
 @cli.command()

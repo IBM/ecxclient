@@ -26,7 +26,7 @@ def list(ctx, **kwargs):
         return
 
     print
-    print tabulate(table_data, headers=["Name", "Host Address", "ID", "Type", "VsphereID"])
+    click.echo_via_pager(tabulate(table_data, headers=["Name", "Host Address", "ID", "Type", "VsphereID"]))
     print
 
 @cli.command()
