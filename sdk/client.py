@@ -2,6 +2,7 @@
 import ConfigParser
 import json
 import os
+import time
 
 import click
 import requests
@@ -19,11 +20,17 @@ resource_to_listfield = {
     'identityuser': 'users',
 }
 
-def build_url(baseurl, restype=None, resid=None, path=None):
+def build_url(baseurl, restype=None, resid=None, path=None, endpoint=None):
     url = baseurl
 
     if restype is not None:
-        url = url + "/" + resource_to_endpoint.get(restype, restype)
+        ep = resource_to_endpoint.get(restype, None)
+        if not ep and endpoint is not None:
+            ep = endpoint
+        else:
+            ep = restype
+
+        url = url + "/" + ep
 
     if resid is not None:
         url = url + "/" + str(resid)
@@ -79,19 +86,20 @@ class EcxSession(object):
         parser = ConfigParser.RawConfigParser()
         parser.add_section(self.username)
         parser.set(self.username, 'sessionid', self.sessionid)
+        parser.set(self.username, 'lastused', time.ctime())
 
         parser.write(open(self.cfgfile, 'wb'))
 
     def __repr__(self):
         return 'EcxSession: user: %s' % self.username
 
-    def get(self, restype=None, resid=None, path=None, params={}):
-        url = build_url(self.api_url, restype, resid, path)
+    def get(self, restype=None, resid=None, path=None, params={}, endpoint=None):
+        url = build_url(self.api_url, restype, resid, path, endpoint)
 
         return json.loads(self.conn.get(url, params=params).content)
 
-    def post(self, restype=None, resid=None, path=None, data={}, params={}):
-        url = build_url(self.api_url, restype, resid, path)
+    def post(self, restype=None, resid=None, path=None, data={}, params={}, endpoint=None):
+        url = build_url(self.api_url, restype, resid, path, endpoint)
         r = self.conn.post(url, data=data, params=params)
 
         if r.content:
