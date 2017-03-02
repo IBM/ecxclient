@@ -22,7 +22,8 @@ def cli(ctx, type, endpoint, **kwargs):
 @util.pass_context
 def list(ctx, **kwargs):
     resp = ctx.ecx_session.get(restype=ctx.restype, endpoint=ctx.endpoint)
-    list_field = kwargs.get('listfield', ctx.restype + 's')
+
+    list_field = kwargs.get('listfield') or (ctx.restype + 's')
 
     if ctx.json or list_field not in resp:
         util.print_response(resp)

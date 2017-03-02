@@ -125,9 +125,10 @@ class EcxSession(object):
         return {}
 
 class EcxAPI(object):
-    def __init__(self, ecx_session, restype=None):
+    def __init__(self, ecx_session, restype=None, endpoint=None):
         self.ecx_session = ecx_session
         self.restype = restype
+        self.endpoint = endpoint
         self.list_field = resource_to_listfield.get(restype, self.restype + 's')
 
     def get(self, resid):
@@ -135,6 +136,10 @@ class EcxAPI(object):
 
     def list(self):
         return self.ecx_session.get(restype=self.restype)[self.list_field]
+
+    def post(self, resid=None, path=None, data={}, params={}, url=None):
+        return self.ecx_session.post(restype=self.restype, resid=resid, path=path, data=data,
+                                     params=params, url=url)
 
 class JobAPI(EcxAPI):
     def __init__(self, ecx_session):
@@ -183,6 +188,9 @@ class UserIdentityAPI(EcxAPI):
     def __init__(self, ecx_session):
         super(UserIdentityAPI, self).__init__(ecx_session, 'identityuser')
 
+    def create(self, data):
+        return self.post(data=data)
+
 class AppserverAPI(EcxAPI):
     def __init__(self, ecx_session):
         super(AppserverAPI, self).__init__(ecx_session, 'appserver')
@@ -191,3 +199,25 @@ class VsphereAPI(EcxAPI):
     def __init__(self, ecx_session):
         super(VsphereAPI, self).__init__(ecx_session, 'vsphere')
 
+class ResProviderAPI(EcxAPI):
+    # Credential info is passed in different field names so we need to maintain
+    # the mapping.
+    user_field_name_map = {"appserver": "osuser", "purestorage": "user", "emcvnx": "user"}
+
+    # Resource type doesn't always correspond to API so we need a map.
+    res_api_map = {"purestorage": "pure"}
+
+    def __init__(self, ecx_session, restype):
+        super(ResProviderAPI, self).__init__(ecx_session, ResProviderAPI.res_api_map.get(restype, restype))
+
+    def register(self, name, host, osuser_identity, catalog=True, ssl=True):
+        osuser_field = ResProviderAPI.user_field_name_map.get(self.restype, 'user')
+        reqdata = {
+            "name": name, "hostAddress": host, "sslConnection": ssl, "addToCatJob": catalog
+        }
+
+        reqdata[osuser_field] = {
+            "href": osuser_identity['links']['self']['href']
+        }
+
+        return self.post(data=reqdata)
