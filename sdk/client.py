@@ -1,6 +1,7 @@
 
 import ConfigParser
 import json
+import logging
 import os
 import time
 
@@ -22,14 +23,22 @@ except ImportError:
 
 resource_to_endpoint = {
     'job': 'endeavour/job',
+    'workflow': 'spec/storageprofile',
+    'policy': 'endeavour/policy',
     'log': 'endeavour/log',
     'user': 'security/user',
+    'resourcepool': 'security/resourcepool',
+    'role': 'security/role',
     'identityuser': 'identity/user',
     'appserver': 'appserver',
 }
 
 resource_to_listfield = {
     'identityuser': 'users',
+    'policy': 'policies',
+    'ldap': 'ldapServers',
+    'pure': 'purestorages',
+    'workflow': 'storageprofiles',
 }
 
 def build_url(baseurl, restype=None, resid=None, path=None, endpoint=None):
@@ -113,10 +122,19 @@ class EcxSession(object):
 
         return json.loads(self.conn.get(url, params=params).content)
 
+    def delete(self, restype=None, resid=None, path=None, params={}, endpoint=None, url=None):
+        if url is None:
+            url = build_url(self.api_url, restype, resid, path, endpoint)
+
+        resp = self.conn.delete(url, params=params)
+
+        return json.loads(resp.content) if resp.content else None
+
     def post(self, restype=None, resid=None, path=None, data={}, params={}, endpoint=None, url=None):
         if url is None:
             url = build_url(self.api_url, restype, resid, path, endpoint)
 
+        logging.info(json.dumps(data, indent=4))
         r = self.conn.post(url, json=data, params=params)
 
         if r.content:
@@ -133,6 +151,9 @@ class EcxAPI(object):
 
     def get(self, resid):
          return self.ecx_session.get(restype=self.restype, resid=resid)
+
+    def delete(self, resid):
+         return self.ecx_session.delete(restype=self.restype, resid=resid)
 
     def list(self):
         return self.ecx_session.get(restype=self.restype)[self.list_field]
@@ -151,7 +172,7 @@ class JobAPI(EcxAPI):
     # TODO: Accept a callback that can be called every time job status is polled.
     # The process of job start is different depending on whether jobs have storage
     # workflows.
-    def start(self, jobid):
+    def run(self, jobid):
         job = self.ecx_session.get(restype=self.restype, resid=jobid)
 
         links = job['links']
@@ -210,14 +231,26 @@ class ResProviderAPI(EcxAPI):
     def __init__(self, ecx_session, restype):
         super(ResProviderAPI, self).__init__(ecx_session, ResProviderAPI.res_api_map.get(restype, restype))
 
-    def register(self, name, host, osuser_identity, catalog=True, ssl=True):
+    def register(self, name, host, osuser_identity, appType=None, osType=None, catalog=True, ssl=True, vsphere_id=None):
         osuser_field = ResProviderAPI.user_field_name_map.get(self.restype, 'user')
         reqdata = {
-            "name": name, "hostAddress": host, "sslConnection": ssl, "addToCatJob": catalog
+            "name": name, "hostAddress": host, "addToCatJob": catalog,
         }
 
         reqdata[osuser_field] = {
             "href": osuser_identity['links']['self']['href']
         }
 
+        if vsphere_id:
+            reqdata["serverType"] = "virtual"
+            reqdata["vsphereId"] = vsphere_id
+
+        if appType:
+            reqdata["applicationType"] = appType
+            reqdata["useKeyAuthentication"] = False
+
+        if osType:
+            reqdata["osType"] = osType
+
         return self.post(data=reqdata)
+

@@ -96,6 +96,14 @@ def list(ctx, **kwargs):
 @cli.command()
 @click.argument('jobid', type=click.INT)
 @util.pass_context
+def delete(ctx, jobid, **kwargs):
+    resp = JobAPI(ecx_session=ctx.ecx_session).delete(jobid)
+    if resp:
+        util.print_response(resp)
+
+@cli.command()
+@click.argument('jobid', type=click.INT)
+@util.pass_context
 def info(ctx, jobid, **kwargs):
     resp = JobAPI(ecx_session=ctx.ecx_session).get(jobid)
     util.print_response(resp)
@@ -105,9 +113,9 @@ def info(ctx, jobid, **kwargs):
 @click.option('--mon', is_flag=True, help='Enables job monitoring.')
 @click.argument('jobid', type=click.INT)
 @util.pass_context
-def start(ctx, jobid, **kwargs):
+def run(ctx, jobid, **kwargs):
     jobapi = JobAPI(ecx_session=ctx.ecx_session)
-    job = jobapi.start(jobid)
+    job = jobapi.run(jobid)
     if kwargs['mon']:
         monitor(jobapi, job, kwargs['i'])
     else:

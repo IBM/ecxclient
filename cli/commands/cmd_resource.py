@@ -4,6 +4,7 @@ from tabulate import tabulate
 
 import util
 from sdk.client import EcxAPI
+from sdk.client import resource_to_listfield
 
 @click.group()
 @click.option('--type', help='Resource type.')
@@ -23,7 +24,7 @@ def cli(ctx, type, endpoint, **kwargs):
 def list(ctx, **kwargs):
     resp = ctx.ecx_session.get(restype=ctx.restype, endpoint=ctx.endpoint)
 
-    list_field = kwargs.get('listfield') or (ctx.restype + 's')
+    list_field = kwargs.get('listfield') or resource_to_listfield.get(ctx.restype) or (ctx.restype + 's')
 
     if ctx.json or list_field not in resp:
         util.print_response(resp)
@@ -57,3 +58,10 @@ def info(ctx, id, **kwargs):
     resp = ctx.ecx_session.get(restype=ctx.restype, resid=id, endpoint=ctx.endpoint)
     util.print_response(resp)
 
+@cli.command()
+@click.argument('id', type=click.INT)
+@util.pass_context
+def delete(ctx, id, **kwargs):
+    resp = ctx.ecx_session.delete(restype=ctx.restype, resid=id, endpoint=ctx.endpoint)
+    if resp:
+        util.print_response(resp)
