@@ -4,6 +4,7 @@ from tabulate import tabulate
 
 import util
 from sdk.client import EcxAPI
+from sdk.client import AssociationAPI
 from sdk.client import resource_to_listfield
 
 @click.group()
@@ -57,6 +58,20 @@ def list(ctx, **kwargs):
 def info(ctx, id, **kwargs):
     resp = ctx.ecx_session.get(restype=ctx.restype, resid=id, endpoint=ctx.endpoint)
     util.print_response(resp)
+
+@cli.command()
+@click.argument('id', type=click.INT)
+@util.pass_context
+def usedby(ctx, id, **kwargs):
+    resp = AssociationAPI(ecx_session=ctx.ecx_session).get_using_resources(ctx.restype, id)["resources"]
+
+    table_data = [(x["type"], x["resourceId"], x["name"]) for x in resp]
+
+    print
+    click.echo_via_pager(tabulate(table_data, headers=["Type", "ID", "Name"]))
+    print
+
+    # util.print_response(resp)
 
 @cli.command()
 @click.argument('id', type=click.INT)

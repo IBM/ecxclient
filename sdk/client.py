@@ -23,6 +23,7 @@ except ImportError:
 
 resource_to_endpoint = {
     'job': 'endeavour/job',
+    'association': 'endeavour/association',
     'workflow': 'spec/storageprofile',
     'policy': 'endeavour/policy',
     'log': 'endeavour/log',
@@ -30,15 +31,18 @@ resource_to_endpoint = {
     'resourcepool': 'security/resourcepool',
     'role': 'security/role',
     'identityuser': 'identity/user',
+    'identitycredential': 'identity/user',
     'appserver': 'appserver',
 }
 
 resource_to_listfield = {
     'identityuser': 'users',
+    'identitycredential': 'users',
     'policy': 'policies',
     'ldap': 'ldapServers',
     'pure': 'purestorages',
     'workflow': 'storageprofiles',
+    'resourcepool': 'resourcePools',
 }
 
 def build_url(baseurl, restype=None, resid=None, path=None, endpoint=None):
@@ -149,8 +153,8 @@ class EcxAPI(object):
         self.endpoint = endpoint
         self.list_field = resource_to_listfield.get(restype, self.restype + 's')
 
-    def get(self, resid):
-         return self.ecx_session.get(restype=self.restype, resid=resid)
+    def get(self, resid=None, path=None, params={}, url=None):
+        return self.ecx_session.get(restype=self.restype, resid=resid, path=path, params=params, url=url)
 
     def delete(self, resid):
          return self.ecx_session.delete(restype=self.restype, resid=resid)
@@ -254,3 +258,9 @@ class ResProviderAPI(EcxAPI):
 
         return self.post(data=reqdata)
 
+class AssociationAPI(EcxAPI):
+    def __init__(self, ecx_session):
+        super(AssociationAPI, self).__init__(ecx_session, 'association')
+
+    def get_using_resources(self, restype, resid):
+        return self.get(path="resource/%s/%s" % (restype, resid), params={"action": "listUsingResources"})
