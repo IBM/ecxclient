@@ -31,7 +31,6 @@ def monitor(jobapi, job, interval_sec=10):
 
     jobsession_id = int(job['lastrun']['sessionId'])
     log_entries_index = 0
-    page_size = 25
     while True:
         if active and (status == "PENDING"):
             # Job moved from active state(s) to PENDING so
@@ -45,7 +44,7 @@ def monitor(jobapi, job, interval_sec=10):
             # Job moved from PENDING to other active states.
             active = True
 
-        log_entries = jobapi.get_log_entries(jobsession_id, page_size, log_entries_index)
+        log_entries = jobapi.get_log_entries(jobsession_id, page_start_index=log_entries_index)
         log_entries_index += len(log_entries)
         print_job_log(log_entries)
 
@@ -55,7 +54,8 @@ def monitor(jobapi, job, interval_sec=10):
         status = jobapi.status(job['id'])['currentStatus']
         logging.info("job status: %s" % status)
 
-    print_job_log(jobapi.get_log_entries(jobsession_id, page_size, log_entries_index))
+    logging.info("Job is done, getting last batch of log entries...")
+    print_job_log(jobapi.get_log_entries(jobsession_id, page_start_index=log_entries_index))
 
     return status
 
@@ -82,7 +82,7 @@ def format_last_run_time(run_time):
 def list(ctx, **kwargs):
     jobs = JobAPI(ecx_session=ctx.ecx_session).list()
     if ctx.json:
-        util.print_response(jobs)
+        ctx.print_response(jobs)
         return
 
     job_table_info = [(x['name'], x['id'], x['status'], format_last_run_time(x['lastRunTime'])) for x in jobs]
@@ -99,14 +99,14 @@ def list(ctx, **kwargs):
 def delete(ctx, jobid, **kwargs):
     resp = JobAPI(ecx_session=ctx.ecx_session).delete(jobid)
     if resp:
-        util.print_response(resp)
+        ctx.print_response(resp)
 
 @cli.command()
 @click.argument('jobid', type=click.INT)
 @util.pass_context
 def info(ctx, jobid, **kwargs):
     resp = JobAPI(ecx_session=ctx.ecx_session).get(jobid)
-    util.print_response(resp)
+    ctx.print_response(resp)
 
 @cli.command()
 @click.option('-i', type=click.INT, metavar='interval_sec', default=10, help='Interval, in seconds, for polling.')
@@ -119,4 +119,4 @@ def run(ctx, jobid, **kwargs):
     if kwargs['mon']:
         monitor(jobapi, job, kwargs['i'])
     else:
-        util.print_response(job)
+        ctx.print_response(job)

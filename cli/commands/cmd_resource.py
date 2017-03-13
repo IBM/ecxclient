@@ -28,7 +28,7 @@ def list(ctx, **kwargs):
     list_field = kwargs.get('listfield') or resource_to_listfield.get(ctx.restype) or (ctx.restype + 's')
 
     if ctx.json or list_field not in resp:
-        util.print_response(resp)
+        ctx.print_response(resp)
         return
 
     resources = resp[list_field]
@@ -57,13 +57,16 @@ def list(ctx, **kwargs):
 @util.pass_context
 def info(ctx, id, **kwargs):
     resp = ctx.ecx_session.get(restype=ctx.restype, resid=id, endpoint=ctx.endpoint)
-    util.print_response(resp)
+    ctx.print_response(resp)
 
 @cli.command()
 @click.argument('id', type=click.INT)
 @util.pass_context
 def usedby(ctx, id, **kwargs):
     resp = AssociationAPI(ecx_session=ctx.ecx_session).get_using_resources(ctx.restype, id)["resources"]
+    if ctx.json:
+        ctx.print_response(resp)
+        return
 
     table_data = [(x["type"], x["resourceId"], x["name"]) for x in resp]
 
@@ -71,12 +74,10 @@ def usedby(ctx, id, **kwargs):
     click.echo_via_pager(tabulate(table_data, headers=["Type", "ID", "Name"]))
     print
 
-    # util.print_response(resp)
-
 @cli.command()
 @click.argument('id', type=click.INT)
 @util.pass_context
 def delete(ctx, id, **kwargs):
     resp = ctx.ecx_session.delete(restype=ctx.restype, resid=id, endpoint=ctx.endpoint)
     if resp:
-        util.print_response(resp)
+        ctx.print_response(resp)

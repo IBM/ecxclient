@@ -21,13 +21,16 @@ def remove_links(obj):
 
     return
 
-def print_response(resp):
-    remove_links(resp)
-    click.echo_via_pager(json.dumps(resp, indent=4))
-
 class Context(object):
     def __init__(self):
-        pass
+        self.links = False
+        self.json = False
+
+    def print_response(self, resp):
+        if not self.links:
+            remove_links(resp)
+
+        click.echo_via_pager(json.dumps(resp, indent=4))
 
 pass_context = click.make_pass_decorator(Context, ensure=True)
 

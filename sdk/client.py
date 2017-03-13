@@ -201,11 +201,15 @@ class JobAPI(EcxAPI):
 
         return self.ecx_session.post(url=start_link['href'], data=reqdata)
 
-    def get_log_entries(self, jobsession_id, page_size=25, page_start_index=0):
+    def get_log_entries(self, jobsession_id, page_size=1000, page_start_index=0):
+        logging.info("*** get_log_entries: jobsession_id = %d, page_start_index: %d ***" % (jobsession_id, page_start_index))
+
         resp = self.ecx_session.get(restype='log', path='job',
                                     params={'pageSize': page_size, 'pageStartIndex': page_start_index,
                                             'sort': '[{"property":"logTime","direction":"ASC"}]',
                                             'filter': '[{"property":"jobsessionId","value":"%d"}]'%jobsession_id})
+
+        logging.info("*** get_log_entries:     Received %d entries..." % len(resp['logs']))
 
         return resp['logs']
 

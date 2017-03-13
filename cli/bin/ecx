@@ -57,15 +57,19 @@ class MyCLI(click.MultiCommand):
 @click.option('--user', envvar='ECX_USER', default='admin', metavar='USERNAME', help='ECX user.')
 @click.option('--passwd', envvar='ECX_PASSWD', default=None, metavar='PASSWORD', help='ECX password.')
 @click.option('--json', is_flag=True, help='Show raw json.')
+@click.option('--links', is_flag=True, help='Include links in output. Implies --json option.')
 @click.version_option('1.0')
 @util.pass_context
-def cli(ctx, url, user, passwd, json):
+def cli(ctx, url, user, passwd, json, links):
     """ecx is a command line tool with which ECX operations
     can be carried out.
     """
 
     ctx.ecx_session = client.EcxSession(url, user, passwd)
     ctx.json = json
+    ctx.links = links
+    if ctx.links:
+        ctx.json = True
 
 # cli = MyCLI(help='Script to perform ECX operations. ')
 
