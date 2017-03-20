@@ -3,6 +3,8 @@ import ConfigParser
 import json
 import logging
 import os
+import re
+import tempfile
 import time
 
 import click
@@ -23,6 +25,7 @@ except ImportError:
 
 resource_to_endpoint = {
     'job': 'endeavour/job',
+    'log': 'endeavour/log',
     'association': 'endeavour/association',
     'workflow': 'spec/storageprofile',
     'policy': 'endeavour/policy',
@@ -126,6 +129,29 @@ class EcxSession(object):
 
         return json.loads(self.conn.get(url, params=params).content)
 
+    def stream_get(self, restype=None, resid=None, path=None, params={}, endpoint=None, url=None, outfile=None):
+        if url is None:
+            url = build_url(self.api_url, restype, resid, path, endpoint)
+
+        r = self.conn.get(url, params=params)
+        logging.info("headers: %s" % r.headers)
+
+        # The response header Content-Disposition contains default file name
+        #   Content-Disposition: attachment; filename=log_1490030341274.zip
+        default_filename = re.findall('filename=(.+)', r.headers['Content-Disposition'])[0]
+
+        if not outfile:
+            if not default_filename:
+                raise Exception("Couldn't get the file name to save the contents.")
+
+            outfile = os.path.join(tempfile.mkdtemp(), default_filename)
+
+        with open(outfile, 'wb') as fd:
+            for chunk in r.iter_content(chunk_size=64*1024):
+                fd.write(chunk)
+
+        return outfile
+
     def delete(self, restype=None, resid=None, path=None, params={}, endpoint=None, url=None):
         if url is None:
             url = build_url(self.api_url, restype, resid, path, endpoint)
@@ -155,6 +181,10 @@ class EcxAPI(object):
 
     def get(self, resid=None, path=None, params={}, url=None):
         return self.ecx_session.get(restype=self.restype, resid=resid, path=path, params=params, url=url)
+
+    def stream_get(self, resid=None, path=None, params={}, url=None, outfile=None):
+        return self.ecx_session.stream_get(restype=self.restype, resid=resid, path=path,
+                                           params=params, url=url, outfile=outfile)
 
     def delete(self, resid):
          return self.ecx_session.delete(restype=self.restype, resid=resid)
@@ -268,3 +298,11 @@ class AssociationAPI(EcxAPI):
 
     def get_using_resources(self, restype, resid):
         return self.get(path="resource/%s/%s" % (restype, resid), params={"action": "listUsingResources"})
+
+class LogAPI(EcxAPI):
+    def __init__(self, ecx_session):
+        super(LogAPI, self).__init__(ecx_session, 'log')
+
+    def download_logs(self, outfile=None):
+        return self.stream_get(path="download/diagnostics", outfile=outfile)
+
