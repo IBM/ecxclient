@@ -36,6 +36,8 @@ resource_to_endpoint = {
     'identityuser': 'identity/user',
     'identitycredential': 'identity/user',
     'appserver': 'appserver',
+    'oracle': 'application/oracle',
+    'site': 'site',
 }
 
 resource_to_listfield = {
@@ -206,7 +208,7 @@ class JobAPI(EcxAPI):
     # TODO: Accept a callback that can be called every time job status is polled.
     # The process of job start is different depending on whether jobs have storage
     # workflows.
-    def run(self, jobid):
+    def run(self, jobid, workflowid=None):
         job = self.ecx_session.get(restype=self.restype, resid=jobid)
 
         links = job['links']
@@ -306,3 +308,15 @@ class LogAPI(EcxAPI):
     def download_logs(self, outfile=None):
         return self.stream_get(path="download/diagnostics", outfile=outfile)
 
+class OracleAPI(EcxAPI):
+    def __init__(self, ecx_session):
+        super(OracleAPI, self).__init__(ecx_session, 'oracle')
+        
+    def get_instances(self):
+        return self.get(path="oraclehome")
+        
+    def get_databases_in_instance(self, instanceid):
+        return self.get(path="oraclehome/%s/database" % instanceid)
+
+    def get_database_copy_versions(self, instanceid, databaseid):
+        return self.get(path="oraclehome/%s/database/%s" % (instanceid, databaseid) + "/version")
