@@ -12,6 +12,11 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 try:
+    import urllib3
+except ImportError:
+    from requests.packages import urllib3
+
+try:
     import http.client as http_client
 except ImportError:
     # Python 2
@@ -22,6 +27,7 @@ except ImportError:
 # TODO: We need better way and we should log requests and responses in
 # log file.
 # http_client.HTTPConnection.debuglevel = 1
+urllib3.disable_warnings()
 
 resource_to_endpoint = {
     'job': 'endeavour/job',
@@ -29,7 +35,6 @@ resource_to_endpoint = {
     'association': 'endeavour/association',
     'workflow': 'spec/storageprofile',
     'policy': 'endeavour/policy',
-    'log': 'endeavour/log',
     'user': 'security/user',
     'resourcepool': 'security/resourcepool',
     'role': 'security/role',
@@ -76,6 +81,9 @@ def build_url(baseurl, restype=None, resid=None, path=None, endpoint=None):
 def raise_response_error(r, *args, **kwargs):
     r.raise_for_status()
 
+def pretty_print(data):
+    return logging.info(json.dumps(data, sort_keys=True,indent=4, separators=(',', ': ')))
+    
 class EcxSession(object):
     def __init__(self, url, username, password):
         self.url = url
@@ -202,6 +210,8 @@ class JobAPI(EcxAPI):
     def __init__(self, ecx_session):
         super(JobAPI, self).__init__(ecx_session, 'job')
 
+    # TODO: May need to check this API seems to return null instead of current status
+    # Can use lastSessionStatus property in the job object for now
     def status(self, jobid):
         return self.ecx_session.get(restype=self.restype, resid=jobid, path='status')
 
@@ -225,21 +235,22 @@ class JobAPI(EcxAPI):
             if not workflows:
                 raise Exception("No workflows for job: %d" % jobid)
             if len(workflows) > 1:
-                # TODO: This is really not an error. User needs to supply
-                # workflow ID to be used in running the job.
-                raise Exception("More than one workflow has been found for job: %d" % jobid)
-
-            reqdata["actionname"] = workflows[0]['value']
+                if(workflowid is None):
+                    raise Exception("Workflow ID not provided")
+                else:
+                    reqdata["actionname"] = workflowid
+            else:
+                reqdata["actionname"] = workflows[0]['value']
 
         return self.ecx_session.post(url=start_link['href'], data=reqdata)
 
     def get_log_entries(self, jobsession_id, page_size=1000, page_start_index=0):
-        logging.info("*** get_log_entries: jobsession_id = %d, page_start_index: %d ***" % (jobsession_id, page_start_index))
+        logging.info("*** get_log_entries: jobsession_id = %s, page_start_index: %s ***" % (jobsession_id, page_start_index))
 
         resp = self.ecx_session.get(restype='log', path='job',
                                     params={'pageSize': page_size, 'pageStartIndex': page_start_index,
                                             'sort': '[{"property":"logTime","direction":"ASC"}]',
-                                            'filter': '[{"property":"jobsessionId","value":"%d"}]'%jobsession_id})
+                                            'filter': '[{"property":"jobsessionId","value":"%s"}]'%jobsession_id})
 
         logging.info("*** get_log_entries:     Received %d entries..." % len(resp['logs']))
 
