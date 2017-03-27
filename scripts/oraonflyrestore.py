@@ -5,14 +5,16 @@
 #
 
 import imp
-import urllib3
 import json
 import sys
 import time
 from optparse import OptionParser
-urllib3.disable_warnings()
+import logging
 
-client = imp.load_source('client', '../ecxclient/sdk/client.py')
+client = imp.load_source('client', '../sdk/client.py')
+
+logger = logging.getLogger('logger')
+logger.setLevel(logging.INFO)
 
 parser = OptionParser()
 parser.add_option("--user", dest="username", help="ECX Username")
@@ -32,7 +34,7 @@ parser.add_option("--copy", dest="copypol", help="Copy Policy Name")
 def validate_input():
     if(options.username is None or options.password is None or options.host is None or
        options.instance is None or options.sourcedb is None or options.destdb is None):
-        print "Invalid input, use -h switch for help"
+        logger.warning("Invalid input, use -h switch for help")
         sys.exit(2)
 
 def get_instances_info():
@@ -45,14 +47,14 @@ def find_instance_in_list(instances):
     for instance in instances:
         if (instance['name'] == options.instance):
             return instance
-    print "Instance not found"
+    logger.warning("Instance not found")
     sys.exit(2)
 
 def find_database_in_instance(databases):
     for database in databases:
         if (database['name'] == options.sourcedb):
             return database
-    print "Source database not found"
+    logger.warning("Source database not found")
     sys.exit(2)
 
 def get_site_info(database):
@@ -71,7 +73,7 @@ def get_latest_version_for_filter(versions):
             found = True
 
     if (found == False):
-        print "Copy name not found"
+        logger.warning("Copy name not found")
         sys.exit(2)
     return filteredversion
 
@@ -152,40 +154,42 @@ def build_restore_policy(database, instance, siteinfo):
 
     return policy
 
+def update_policy_options(policy):
+    if (options.copypol is not None):
+        versions = get_database_copy_versions(instance, database)['versions']
+        version = get_latest_version_for_filter(versions)
+        updatedversion = {"href": version['links']['self']['href']}
+        updatedversion['metadata'] = {"id": version['id'],
+                                      "name": time.strftime('%b %d %H:%M:%S %Y',
+                                                            time.localtime(version['protectionInfo']['protectionTime']/1000))}
+        policy['spec']['source'][0]['version'] = updatedversion
+
+    if (options.mounttype == "prefix"):
+        policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointRename'] = "prefix"
+        policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointPrefix'] = options.mountstring1
+    if (options.mounttype == "suffix"):
+        policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointRename'] = "suffix"
+        policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointSuffix'] = options.mountstring1
+    if (options.mounttype == "none"):
+        policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointRename'] = "none"
+    if (options.mounttype == "replace"):
+        policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointRename'] = "replace"
+        policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointOldSubstring'] = options.mountstring1
+        policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointNewSubstring'] = options.mountstring2
+
+    return policy
+
 validate_input()
 session = client.EcxSession(options.host, options.username, options.password)
 session.login()
+
 instances = get_instances_info()['instances']
 instance = find_instance_in_list(instances)
 databases = get_database_info(instance)
 database = find_database_in_instance(databases['databases'])
 siteinfo = get_site_info(database)
 policy = build_restore_policy(database, instance, siteinfo)
-
-if (options.copypol is not None):
-    versions = get_database_copy_versions(instance, database)['versions']
-    version = get_latest_version_for_filter(versions)
-    updatedversion = {"href": version['links']['self']['href']}
-    updatedversion['metadata'] = {"id": version['id'],
-                                  "name": time.strftime('%b %d %H:%M:%S %Y',
-                                                        time.localtime(version['protectionInfo']['protectionTime']/1000))}
-    policy['spec']['source'][0]['version'] = updatedversion
-
-if (options.mounttype == "prefix"):
-    policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointRename'] = "prefix"
-    policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointPrefix'] = options.mountstring1
-if (options.mounttype == "suffix"):
-    policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointRename'] = "suffix"
-    policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointSuffix'] = options.mountstring1
-if (options.mounttype == "none"):
-    policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointRename'] = "none"
-if (options.mounttype == "replace"):
-    policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointRename'] = "replace"
-    policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointOldSubstring'] = options.mountstring1
-    policy['spec']['subpolicy'][0]['option']['applicationOption']['mountPointNewSubstring'] = options.mountstring2
-
-
-#print json.dumps(policy, sort_keys=True, indent=4, separators=(',',':'))
+policy = update_policy_options(policy)
 
 generatedjob = create_policy_and_job(policy)
 run_generated_job(generatedjob)

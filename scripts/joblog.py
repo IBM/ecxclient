@@ -5,7 +5,7 @@ import logging
 from optparse import OptionParser
 import time
 import csv
-client = imp.load_source('client', '../ecxclient/sdk/client.py')
+client = imp.load_source('client', '../sdk/client.py')
 
 logger = logging.getLogger('logger')
 logger.setLevel(logging.INFO)
