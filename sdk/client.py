@@ -181,6 +181,18 @@ class EcxSession(object):
             return json.loads(r.content)
 
         return {}
+    
+    def put(self, restype=None, resid=None, path=None, data={}, params={}, endpoint=None, url=None):
+        if url is None:
+            url = build_url(self.api_url, restype, resid, path, endpoint)
+
+        logging.info(json.dumps(data, indent=4))
+        r = self.conn.put(url, json=data, params=params)
+
+        if r.content:
+            return json.loads(r.content)
+
+        return {}
 
 class EcxAPI(object):
     def __init__(self, ecx_session, restype=None, endpoint=None):
@@ -204,6 +216,10 @@ class EcxAPI(object):
 
     def post(self, resid=None, path=None, data={}, params={}, url=None):
         return self.ecx_session.post(restype=self.restype, resid=resid, path=path, data=data,
+                                     params=params, url=url)
+                                     
+    def put(self, resid=None, path=None, data={}, params={}, url=None):
+        return self.ecx_session.put(restype=self.restype, resid=resid, path=path, data=data,
                                      params=params, url=url)
 
 class JobAPI(EcxAPI):
