@@ -31,6 +31,7 @@ urllib3.disable_warnings()
 
 resource_to_endpoint = {
     'job': 'endeavour/job',
+	'jobsession': 'endeavour/jobsession',
     'log': 'endeavour/log',
     'association': 'endeavour/association',
     'workflow': 'spec/storageprofile',
