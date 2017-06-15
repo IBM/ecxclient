@@ -7,8 +7,8 @@ import time
 import click
 from tabulate import tabulate
 
-import util
-from sdk.client import LogAPI
+from ecxclient.cli import util
+from ecxclient.sdk.client import LogAPI
 
 @click.group()
 @util.pass_context

@@ -7,8 +7,8 @@ import time
 import click
 from tabulate import tabulate
 
-import util
-from sdk.client import JobAPI
+from ecxclient.cli import util
+from ecxclient.sdk.client import JobAPI
 
 def print_job_log(log_entries):
     for entry in log_entries:

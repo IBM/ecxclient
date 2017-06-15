@@ -1,8 +1,10 @@
 
-= ECX Client
+============
+ ECX Client
+============
 
 This project aims to build a Python client for Catalogic Software's 
-https://catalogicsoftware.com/products/ecx/[ECX] product. 
+`ECX <https://catalogicsoftware.com/products/ecx/>`_ product. 
 
 This repo holds two components. 
 
@@ -11,28 +13,35 @@ This repo holds two components.
 
 - A command line utility with which ECX operations can be performed.
 
-== Usage
+Installation
+============
 
-....
-$ git clone --recursive https://github.com/catalogicsoftware/ecxclient.git
+::
 
-$ cd ecxclient/cli/bin
-$ ./ecx --help
+$ pip install ecxclient
 
-# This connects to ECX on localhost.
-$ ./ecx --user admin --passwd <PASSWORD> job list
+Usage
+=====
 
-# To connect to a different host. Default user is "admin".
-$ ./ecx --url https://1.2.3.4:8443 --passwd <PASSWORD> job list
-....
+::
 
-== Notes
+    $ ecxcli --help
+    
+    # This connects to ECX on localhost.
+    $ ecxcli --user admin --passwd <PASSWORD> job list
+    
+    # To connect to a different host. Default user is "admin".
+    $ ecxcli --url https://1.2.3.4:8443 --passwd <PASSWORD> job list
+    
+Notes
+=====
 
 - After a successful login, the command "remembers" the login session
   so there is no need to pass user name and password with every
   run.
 
-== Known Issues
+Known Issues
+============
 
 - When "https" URL is used, there are some warnings displayed on the
   console. We need to find a way to get rid of them.

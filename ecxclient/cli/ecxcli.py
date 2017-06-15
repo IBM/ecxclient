@@ -9,26 +9,13 @@ import sys
 import tempfile
 import traceback
 
-script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
-root_dir = os.path.abspath(os.path.join(parent_dir, ".."))
-sdk_dir = os.path.join(root_dir, "sdk")
-dependencies_dir = os.path.join(root_dir, "dependencies")
-
-# sys.path.insert(0, sdk_dir)
-sys.path.insert(0, parent_dir)
-sys.path.insert(0, os.path.join(dependencies_dir, "click"))
-sys.path.insert(0, os.path.join(dependencies_dir, "requests"))
-sys.path.insert(0, os.path.join(dependencies_dir, "python-tabulate"))
-sys.path.insert(0, root_dir)
-
 import click
 from requests.exceptions import HTTPError
 
-from sdk import client
+from ecxclient.sdk import client
 import util
 
-cmd_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'commands'))
+cmd_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'commands'))
 
 class MyCLI(click.MultiCommand):
     def list_commands(self, ctx):
@@ -44,7 +31,7 @@ class MyCLI(click.MultiCommand):
             if sys.version_info[0] == 2:
                 name = name.encode('ascii', 'replace')
 
-            mod = __import__('commands.cmd_' + name, None, None, ['cli'])
+            mod = __import__('ecxclient.cli.commands.cmd_' + name, None, None, ['cli'])
         except ImportError:
             logging.error(traceback.format_exc())
             return
@@ -93,7 +80,7 @@ def process_http_error(e):
     except Exception:
         pass
 
-if __name__ == '__main__':
+def main():
     init_logging()
 
     try:
@@ -105,5 +92,3 @@ if __name__ == '__main__':
         click.secho(traceback.format_exception_only(exctype, value)[0], fg='red')
 
         process_http_error(e)
-
-        sys.exit(1)

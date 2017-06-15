@@ -2,10 +2,11 @@
 import click
 from tabulate import tabulate
 
-import util
-from sdk.client import EcxAPI
-from sdk.client import AssociationAPI
-from sdk.client import resource_to_listfield
+from ecxclient.cli import util
+
+from ecxclient.sdk.client import EcxAPI
+from ecxclient.sdk.client import AssociationAPI
+from ecxclient.sdk.client import resource_to_listfield
 
 @click.group()
 @click.option('--type', help='Resource type.')
