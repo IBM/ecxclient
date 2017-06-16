@@ -38,6 +38,20 @@ class MyCLI(click.MultiCommand):
 
         return mod.cli
 
+def get_existing_session(username):
+    parser = ConfigParser.RawConfigParser()
+    parser.read([cfgfile])
+
+    try:
+        return parser.get(username, 'sessionid')
+    except ConfigParser.NoSectionError:
+        raise Exception('Please provide login credentials.')
+
+def save_config(username, sessionid):
+    parser = ConfigParser.RawConfigParser()
+    parser.add_section(username)
+    parser.set(username, 'sessionid', sessionid)
+    parser.write(open(cfgfile, 'wb'))
 
 @click.command(cls=MyCLI)
 @click.option('--url', envvar='ECX_URL', default='http://localhost:8082', metavar='URL', help='ECX url.')
@@ -45,14 +59,19 @@ class MyCLI(click.MultiCommand):
 @click.option('--passwd', envvar='ECX_PASSWD', default=None, metavar='PASSWORD', help='ECX password.')
 @click.option('--json', is_flag=True, help='Show raw json.')
 @click.option('--links', is_flag=True, help='Include links in output. Implies --json option.')
-@click.version_option('1.0')
+@click.version_option('0.43')
 @util.pass_context
 def cli(ctx, url, user, passwd, json, links):
     """ecx is a command line tool with which ECX operations
     can be carried out.
     """
 
-    ctx.ecx_session = client.EcxSession(url, user, passwd)
+    if user and passwd:
+        ctx.ecx_session = client.EcxSession(url, username=user, password=passwd)
+        save_config(user, ctx.ecx_session.sessionid)
+    else:
+        ctx.ecx_session = client.EcxSession(url, sessionid=get_existing_session(user))
+
     ctx.json = json
     ctx.links = links
     if ctx.links:
@@ -81,7 +100,14 @@ def process_http_error(e):
         pass
 
 def main():
+    global cfgfile
+
     init_logging()
+
+    cfgfile = os.path.join(click.get_app_dir("ecxcli"), 'config.ini')
+    cfgdir = os.path.dirname(cfgfile)
+    if not os.path.exists(cfgdir):
+        os.makedirs(cfgdir)
 
     try:
         cli()

@@ -7,7 +7,6 @@ import re
 import tempfile
 import time
 
-import click
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -86,50 +85,30 @@ def pretty_print(data):
     return logging.info(json.dumps(data, sort_keys=True,indent=4, separators=(',', ': ')))
     
 class EcxSession(object):
-    def __init__(self, url, username, password):
+    def __init__(self, url, username=None, password=None, sessionid=None):
         self.url = url
         self.api_url = url + '/api'
         self.username = username
         self.password = password
-        self.sessionid = None
-        self.cfgfile = os.path.join(click.get_app_dir("ecxcli"), 'config.ini')
-        self.cfgdir = os.path.dirname(self.cfgfile)
-        if not os.path.exists(self.cfgdir):
-            os.makedirs(self.cfgdir)
+        self.sessionid = sessionid
 
         self.conn = requests.Session()
         self.conn.verify = False
         self.conn.hooks.update({'response': raise_response_error})
 
-        if self.password is None:
-            self.use_existing_session()
-        else:
-            self.login()
+        if not self.sessionid:
+            if self.username and self.password:
+                self.login()
+            else:
+                raise Exception('Please provide login credentials.')
 
         self.conn.headers.update({'X-Endeavour-Sessionid': self.sessionid})
         self.conn.headers.update({'Content-Type': 'application/json'})
         self.conn.headers.update({'Accept': 'application/json'})
 
-    def use_existing_session(self):
-        parser = ConfigParser.RawConfigParser()
-        parser.read([self.cfgfile])
-
-        try:
-            self.sessionid = parser.get(self.username, 'sessionid')
-        except ConfigParser.NoSectionError:
-            raise Exception('Please provide login credentials.')
-
     def login(self):
         r = self.conn.post("%s/endeavour/session" % self.api_url, auth=HTTPBasicAuth(self.username, self.password))
         self.sessionid = r.json()['sessionid']
-        self.save_config()
-
-    def save_config(self):
-        parser = ConfigParser.RawConfigParser()
-        parser.add_section(self.username)
-        parser.set(self.username, 'sessionid', self.sessionid)
-
-        parser.write(open(self.cfgfile, 'wb'))
 
     def __repr__(self):
         return 'EcxSession: user: %s' % self.username
