@@ -1,3 +1,6 @@
+# example:
+# python register_appserver.py --user="admin" --pass="password123" --host="https://172.20.58.1:8443" --provname="PSDEMO-DB2" --provhost="172.20.58.20" --provsite="New York" --provcred="credentials" --provtype="osvolume" --provst="physical" --provos="Linux"
+
 import sys
 import httplib
 import json
@@ -148,13 +151,11 @@ def build_provider():
     provider['appCredentials'] = []
     provider['addToCatJob'] = True
     provider['useKeyAuthentication'] = False
-    prettyprint(provider)
     return provider
 
 def register_provider():
     provider = build_provider()
     resp = client.EcxAPI(session, 'appserver').post(data=provider)
-    print resp
 
 validate_input()
 session.login()
