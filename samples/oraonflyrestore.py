@@ -11,7 +11,7 @@ import time
 from optparse import OptionParser
 import logging
 
-client = imp.load_source('client', '../sdk/client.py')
+import ecxclient.sdk.client as client
 
 logger = logging.getLogger('logger')
 logger.setLevel(logging.INFO)

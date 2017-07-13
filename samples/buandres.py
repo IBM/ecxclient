@@ -9,7 +9,7 @@ import logging
 from optparse import OptionParser
 import time
 import sys
-client = imp.load_source('client', '../sdk/client.py')
+import ecxclient.sdk.client as client
 
 parser = OptionParser()
 parser.add_option("--user", dest="username", help="ECX Username")
