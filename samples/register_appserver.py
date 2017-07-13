@@ -155,7 +155,12 @@ def build_provider():
 
 def register_provider():
     provider = build_provider()
-    resp = client.EcxAPI(session, 'appserver').post(data=provider)
+    try:
+        resp = client.EcxAPI(session, 'appserver').post(data=provider)
+        print "Provider " + options.provname + " registerd."
+    except client.requests.exceptions.HTTPError as e:
+        error = json.loads(e.response.content)
+        print "Error registering provider: " + error['id']
 
 validate_input()
 session.login()
