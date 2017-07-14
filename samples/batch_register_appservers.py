@@ -1,5 +1,6 @@
+# script to register multiple appservers given a .csv file with parameters
 # example:
-# python register_appserver.py --user="admin" --pass="password123" --host="https://172.20.58.1:8443" --provname="PSDEMO-DB2" --provhost="172.20.58.20" --provsite="New York" --provcred="credentials" --provtype="osvolume" --provst="physical" --provos="Linux"
+# python register_appserver.py --user="admin" --pass="password123" --host="https://172.20.58.1:8443" --csv="/tmp/provs.csv"
 
 import sys
 import httplib
@@ -17,46 +18,61 @@ parser = OptionParser()
 parser.add_option("--user", dest="username", help="ECX Username")
 parser.add_option("--pass", dest="password", help="ECX Password")
 parser.add_option("--host", dest="host", help="ECX Host, (ex. https://172.20.58.10:8443)")
-parser.add_option("--provname", dest="provname", help="Provider Name")
-parser.add_option("--provhost", dest="provhost", help="Provider Host Address")
-parser.add_option("--provsite", dest="provsite", help="Porivder Site")
-parser.add_option("--provcred", dest="provcred", help="Provider Credentials (ECX object name)")
-parser.add_option("--provtype", dest="provtype", help="Provider Type (oracle, sql, osvolume, saphana, cache)")
-parser.add_option("--provst", dest="provst", help="Provider Server Type (physical or virtual)")
-parser.add_option("--provport", dest="provport", help="Provider Port (optional)")
-parser.add_option("--provos", dest="provos", help="Provider OS (required if filesystem/osvolume, windows, linux, aix)")
-parser.add_option("--provvc", dest="provvc", help="Provider vCenter (required if Virtual)")
-parser.add_option("--provcom", dest="provcom", help="Provider Comment (optional)")
+parser.add_option("--csv", dest="csv", help="Full path to .csv providers file")
 
-(options, args) = parser.parse_args()
+(opt, args) = parser.parse_args()
 
-session = client.EcxSession(options.host, options.username, options.password)
+class Options(object):
+    provname = None
+    provhost = None
+    provsite = None
+    provcred = None
+    provtype = None
+    provst = None
+    provport = None
+    provos = None
+    provvc = None
+    provcom = None
+
+options = Options()
+credentials_found = False
+validation_passed = False
+site_found = False
+vcenter_found = True
+
+session = client.EcxSession(opt.host, opt.username, opt.password)
 
 def validate_input():
-
-    if (options.username is None or options.password is None or options.host is None):
+    if (opt.username is None or opt.password is None or opt.host is None):
         print "ECX login information missing"
         sys.exit(2)
-        
+    if (opt.csv is None):
+        print "Source .csv path missing"
+        sys.exit(2)
+
+def validate_provider_info():
+    global validation_passed
+    validation_passed = False
+
     if (options.provname is None):
         print "Provider name missing"
-        sys.exit(2)
+        return
 
     if (options.provhost is None):
         print "Provider hostname or IP missing"
-        sys.exit(2)
+        return
 
     if (options.provsite is None):
         print "Provider site missing"
-        sys.exit(2)
+        return
 
     if (options.provcred is None):
         print "Provider credentials missing"
-        sys.exit(2)
+        return
 
     if (options.provtype is None or options.provst is None):
         print "Provider type or server type is missing"
-        sys.exit(2)
+        return
 
     if (options.provtype.upper() == "ORACLE" or options.provtype.upper() == "SQL"
         or options.provtype.upper() == "OSVOLUME" or options.provtype.upper == "SAPHANA"
@@ -64,17 +80,17 @@ def validate_input():
         options.provtype = options.provtype.lower()
     else:
         print "Provider type is invalid (oracle, sql, osvolume, saphana or cache)"
-        sys.exit(2)
+        return
 
     if (options.provst.upper() == "VIRTUAL" or options.provst.upper() == "PHYSICAL"):
         options.provst = options.provst.lower()
     else:
         print "Provider server type is invalid (virtual or physical)"
-        sys.exit(2)
+        return
 
     if (options.provtype == "osvolume" and options.provos is None):
         print "Provider OS is required if type is osvolume"
-        sys.exit(2)
+        return
     elif (options.provos.upper() == "WINDOWS" or options.provos.upper() == "LINUX"
           or options.provos.upper() == "AIX"):
         options.provos = options.provos.lower()
@@ -85,39 +101,46 @@ def validate_input():
         options.provos = "windows"
     else:
         print "Provider OS is invalid (windows, linux or aix)"
-        sys.exit(2)
+        return
 
     if (options.provst == "virtual" and options.provvc is None):
         print "Provider vCenter is required for virtual providers"
-        sys.exit(2)
-    return None
+        return
+    
+    validation_passed = True
 
 def prettyprint(indata):
     print json.dumps(indata, sort_keys=True,indent=4, separators=(',', ': '))
 
 def find_credential():
+    global credentials_found
+    credentials_found = False
     userlist = client.EcxAPI(session, 'identityuser').list()
     for user in userlist:
         if (user['name'].upper() == options.provcred.upper()):
+            credentials_found = True
             return {"href": user['links']['self']['href']}
     print "Provider credentials not found"
-    sys.exit(2)
 
 def find_vcenter():
+    global vcenter_found
+    vcenter_found = False
     vcenterlist = client.EcxAPI(session, 'vsphere').list()
     for vcenter in vcenterlist:
         if (vcenter['name'].upper() == options.provvc.upper()):
+            vcenter_found = True
             return vcenter['id']
     print "Provider vCenter not found"
-    sys.exit(2)
 
 def find_site_id_by_name():
+    global site_found
+    site_found = False
     sitelist = client.EcxAPI(session, 'site').list()
     for site in sitelist:
         if (site['name'].upper() == options.provsite.upper()):
+            site_found = True
             return site['id']
     print "Provider site not found"
-    sys.exit(2)
 
 def build_provider():
     provider = {}
@@ -156,18 +179,53 @@ def build_provider():
     provider['appCredentials'] = []
     provider['addToCatJob'] = True
     provider['useKeyAuthentication'] = False
+    #prettyprint(provider)
     return provider
 
 def register_provider():
+    validate_provider_info()
     provider = build_provider()
-    try:
-        resp = client.EcxAPI(session, 'appserver').post(data=provider)
-        print "Provider " + options.provname + " registerd."
-    except client.requests.exceptions.HTTPError as e:
-        error = json.loads(e.response.content)
-        print "Error registering provider: " + error['id']
+    global validation_passed
+    global credentials_found
+    global site_found
+    global vcenter_found
+    if (validation_passed and credentials_found and site_found and vcenter_found):
+        try:
+            resp = client.EcxAPI(session, 'appserver').post(data=provider)
+            print "Provider " + options.provname + " registerd."
+        except client.requests.exceptions.HTTPError as e:
+            error = json.loads(e.response.content)
+            print "Error registering provider: " + provider['name'] + " " + error['id']
+    else:
+        print "Skipping provider " + provider['name'] + " registration for above reason"
+        vcenter_found = True
+
+def read_csv():
+    with open(opt.csv) as csvfile:
+        provs = csv.DictReader(csvfile, delimiter='\t')
+        for prov in provs:
+            if(prov['provider name'] == ""):
+                options.provname = None
+            else:
+                options.provname = prov['provider name']
+            if(prov['provider host'] == ""):
+                options.provhost = None
+            else:
+                options.provhost = prov['provider host']
+            options.provsite = prov['provider site']
+            options.provcred = prov['provider credentials']
+            options.provtype = prov['provider type']
+            options.provst = prov['provider server type']
+            if(prov['provider port'] == ""):
+               options.provport = None
+            else:
+                options.provport = int(prov['provider port'])
+            options.provos = prov['provider os']
+            options.provvc = prov['provider vcenter']
+            options.provcom = prov['provider comment']
+            register_provider()
 
 validate_input()
 session.login()
-register_provider()
+read_csv()
 session.delete('endeavour/session/')
