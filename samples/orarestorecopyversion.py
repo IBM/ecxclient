@@ -14,6 +14,7 @@ import logging
 import ecxclient.sdk.client as client
 
 logger = logging.getLogger('logger')
+logging.basicConfig()
 logger.setLevel(logging.INFO)
 
 parser = OptionParser()
@@ -34,7 +35,7 @@ def get_restore_job():
     for job in jobs:
         if(job['name'].upper() == options.restore.upper()):
             return job
-    logger.info("No job found with name %d" % options.restore)
+    logger.info("No job found with name %s" % options.restore)
     session.delete('endeavour/session/')
     sys.exit(2)
 
@@ -52,6 +53,7 @@ def get_version_for_policy(policy):
         metadata['id'] = "latest"
         metadata['name'] = "Use Latest"
         version['metadata'] = metadata
+        logger.info("Using latest backup copy version.")
         return version
     else:
         start = int(datetime.datetime.strptime(options.start, '%m/%d/%Y').strftime("%s"))*1000
@@ -65,6 +67,7 @@ def get_version_for_policy(policy):
                 metadata['id'] = vers['id']
                 metadata['name'] = time.ctime(prottime/1000)[4:]
                 version['metadata'] = metadata
+                logger.info("Using backup copy version from: %s" % metadata['name'])
                 return version
     logger.info("No backup copy found with provided dates")
     session.delete('endeavour/session/')
@@ -93,10 +96,12 @@ def get_pending_job_session(job):
 
 def cancel_restore_job(jobsession):
     sessioninfo = jobsession['id'] + "?action=resume&actionname=end_ia"
+    logger.info("Cancelling restore session: %s" % jobsession['id'])
     cancel = client.EcxAPI(session, 'jobsession').post(path=sessioninfo)
     return cancel
 
 def run_restore_job(job):
+    logger.info("Running restore job: %s" % job['name'])
     return client.JobAPI(session).run(job['id'])
 
 def run_restore():
