@@ -35,6 +35,7 @@ def get_restore_job():
         if(job['name'].upper() == options.restore.upper()):
             return job
     logger.info("No job found with name %d" % options.restore)
+    session.delete('endeavour/session/')
     sys.exit(2)
 
 def get_policy_for_job(job):
@@ -66,6 +67,7 @@ def get_version_for_policy(policy):
                 version['metadata'] = metadata
                 return version
     logger.info("No backup copy found with provided dates")
+    session.delete('endeavour/session/')
     sys.exit(2)
 
 def update_restore_policy(policy):
@@ -83,11 +85,16 @@ def update_restore_policy(policy):
 def get_pending_job_session(job):
     sessionurl = job['links']['pendingjobsessions']['href']
     jobsession = client.EcxAPI(session, 'jobsession').get(url=sessionurl)
+    if (len(jobsession['sessions']) < 1):
+        logger.info("No pending job sessions found.")
+        session.delete('endeavour/session/')
+        sys.exit(2)
     return jobsession['sessions'][0]
 
-def cancel_restore_job(session):
-    cancelurl = session['links']['cancel_ra']['href']
-    return client.EcxAPI(session, 'jobsession').post(url=cancelurl, data={})
+def cancel_restore_job(jobsession):
+    sessioninfo = jobsession['id'] + "?action=resume&actionname=end_ia"
+    cancel = client.EcxAPI(session, 'jobsession').post(path=sessioninfo)
+    return cancel
 
 def run_restore_job(job):
     return client.JobAPI(session).run(job['id'])
