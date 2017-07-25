@@ -55,7 +55,7 @@ def run_job_and_wait_for_completion(job, swf=None):
     logger.info("Running job... please wait.")
     time.sleep(5)
     job = update_job(job['id'])
-    while (job['lastSessionStatus'] == "RUNNING"):
+    while (job['lastrun']['status'] == "RUNNING"):
         time.sleep(5)
         job = update_job(job['id'])
     logger.info("Job finished.")
