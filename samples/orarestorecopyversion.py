@@ -4,7 +4,6 @@
 # If no date range is provided the latest copy will be used
 # Backup job name for the copy to use can also be provided
 # Set the cancel parameter = true if using this script to cancel/clean up an existing restore job
-# The dest parameter is optional and will output logs at the end of the job if provided
 # 
 
 import json
@@ -28,7 +27,6 @@ parser.add_option("--start", dest="start", help="Start Date filter for backup ve
 parser.add_option("--end", dest="end", help="End Date filter for backup version (optional)")
 parser.add_option("--backup", dest="backup", help="Backup job name for copy to use (optional)")
 parser.add_option("--cancel", dest="cancel", help="Enter 'true' for Cancel/Cleanup restore (optional)")
-parser.add_option("--dest", dest="dest", help="Destination to save log .csv (ex. /tmp/log.csv) (optional)")
 (options, args) = parser.parse_args()
 if (options.cancel is None):
     options.cancel = "false"
@@ -89,7 +87,6 @@ def get_version_for_policy(policy):
                 metadata['name'] = time.ctime(prottime/1000)[4:]
                 version['metadata'] = metadata
                 logger.info("Using backup copy version from: %s" % metadata['name'])
-                prettyprint(vers)
                 return version
     # match on dates no copy named supplied    
     else:
@@ -140,19 +137,19 @@ def cancel_restore_job(jobsession):
 def run_restore_job(job):
     logger.info("Running restore job: %s" % job['name'])
     job = client.JobAPI(session).run(job['id'])
+    return job
 
 def run_restore():
     job = get_restore_job()
     if (options.cancel.upper() == "TRUE"):
         jobsession = get_pending_job_session(job)
-        cancel_restore_job(jobsession)
+        job = cancel_restore_job(jobsession)
     else:
         policy = get_policy_for_job(job)
         version = get_version_for_policy(policy)
         policy['spec']['source'][0]['version'] = version
-        prettyprint(version)
         policy = update_restore_policy(policy)
-        run_restore_job(job)
+        job = run_restore_job(job)
 
 session = client.EcxSession(options.host, options.username, options.password)
 session.login()
