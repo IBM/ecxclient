@@ -8,6 +8,7 @@
 import json
 import sys
 import time
+import copy
 import datetime
 from optparse import OptionParser
 import logging
@@ -53,7 +54,7 @@ def get_info_for_vms():
         allvms.extend(vspherevms)
     for vm in allvms:
         if (vm['name'] in options.vms):
-            selectedvms.append(vm.copy())
+            selectedvms.append(copy.deepcopy(vm))
     return selectedvms
 
 def build_source_info_for_vms(vmlist):
@@ -70,7 +71,7 @@ def build_source_info_for_vms(vmlist):
         vmsourcemd['name'] = vm['name']
         vmsourcemd['resourceType'] = "vm"
         vmsource['metadata'] = vmsourcemd
-        source.append(vmsource.copy())
+        source.append(copy.deepcopy(vmsource))
     return source
     
 

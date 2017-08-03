@@ -1,6 +1,7 @@
 #
 # Script to update and run an existing VMWare restore job
 # --restore is always required (existing restore job name)
+# --mode is always required (restore run mode, Test|Production|Clone)
 # --desttype corresponds to the type of restore being performed
 #       1 = use orig host/cluster with sys defined IP (default)
 #       2 = use orig host/cluster with original IP
@@ -14,6 +15,7 @@
 import json
 import sys
 import time
+import copy
 import datetime
 from optparse import OptionParser
 import logging
@@ -28,6 +30,7 @@ parser.add_option("--user", dest="username", help="ECX Username")
 parser.add_option("--pass", dest="password", help="ECX Password")
 parser.add_option("--host", dest="host", help="ECX Host, (ex. https://172.20.58.10:8443)")
 parser.add_option("--restore", dest="restore", help="Restore Job Name")
+parser.add_option("--mode", dest="mode", help="Restore Job Run Mode")
 parser.add_option("--vms", dest="vms", help="List of VMs to restore (comma seperated)")
 parser.add_option("--start", dest="start", help="Start date/time of copy to use")
 parser.add_option("--end", dest="end", help="End date/time of copy to use")
@@ -57,6 +60,7 @@ def get_policy_for_job(job):
     return policy
 
 def get_info_for_vms():
+    logger.info("Getting information for VMs...")
     vspheres = client.EcxAPI(session, 'vsphere').list()
     allvms = []
     selectedvms = []
@@ -65,7 +69,7 @@ def get_info_for_vms():
         allvms.extend(vspherevms)
     for vm in allvms:
         if (vm['name'] in options.vms):
-            selectedvms.append(vm.copy())
+            selectedvms.append(copy.deepcopy(vm))
     return selectedvms
 
 def build_source_info_for_vms(vmlist):
@@ -73,17 +77,16 @@ def build_source_info_for_vms(vmlist):
     vmsource = {}
     vmsourcemd = {}
     for vm in vmlist:
-        vmsource['href'] = vm['links']['self']['href']
+        vmsource['href'] = vm['links']['self']['href']+"?time=0"
         vmsource['resourceType'] = "vm"
         vmsource['id'] = vm['id']
         vmsource['include'] = True
         vmsourcemd['id'] = vm['id']
         vmsourcemd['path'] = build_path_for_vm(vm)
         vmsourcemd['name'] = vm['name']
-        vmsourcemd['resourceType'] = "vm"
         vmsource['metadata'] = vmsourcemd
         vmsource['version'] = build_version_for_vm(vm)
-        source.append(vmsource.copy())
+        source.append(copy.deepcopy(vmsource))
     return source
 
 def build_version_for_vm(vm):
@@ -110,15 +113,12 @@ def build_version_for_vm(vm):
         end = int(datetime.datetime.strptime(options.end, '%m/%d/%Y %H:%M').strftime("%s"))*1000
         for vers in versions:
             prottime = int(vers['protectionInfo']['protectionTime'])
-            print "Start time: " + str(start)
-            print "End time: " + str(end)
-            print "Vers time: " + str(vers['protectionInfo']['protectionTime'])
             if (start < prottime and prottime < end):
                 version['href'] = vers['links']['self']['href']
                 metadata['id'] = vers['id']
                 metadata['name'] = time.ctime(prottime/1000)[4:].replace("  "," ")
                 version['metadata'] = metadata
-                logger.info("Using backup copy version from: %s" % metadata['name'])
+                logger.info("Using backup copy version from: " + metadata['name'] + " for " + vm['name'])
                 return version
     logger.info("No backup copy found with provided dates")
     session.delete('endeavour/session/')
@@ -152,8 +152,8 @@ def build_policy_for_update(policy, sourceinfo, vmlist):
 def build_alt_dest(policy, vmlist):
     destination = {}
     destination['target'] = build_alt_dest_target()
-    destination['mapvirtualnetwork'] = build_alt_dest_vlan(destination)
-    destination['mapRRPdatastore'] = build_alt_dest_ds()
+    destination['mapvirtualnetwork'] = build_alt_dest_vlan(destination, vmlist)
+    destination['mapRRPdatastore'] = build_alt_dest_ds(destination, vmlist)
     destination['mapsubnet'] = {"systemDefined": True}
     return destination
 
@@ -176,19 +176,91 @@ def build_alt_dest_target():
         sys.exit(2)
     target['href'] = targethost['links']['self']['href']
     target['resourceType'] = targethost['resourceType']
-    targetmd['path'] = targetvsphere['siteName'] + ":" + targetvsphere['siteId'] + "/" + targethost['name'] + ":"
-    targetmd['path'] += targethost['id'] + "/" + targetdc['name'] + ":" + targetdc['id']
+    targetmd['path'] = targetvsphere['siteName'] + ":" + targetvsphere['siteId'] + "/" + targetvsphere['name'] + ":"
+    targetmd['path'] += targetvsphere['id'] + "/" + targetdc['name'] + ":" + targetdc['id']
     targetmd['name'] = targethost['name']
     target['metadata'] = targetmd
     return target
 
-def build_alt_dest_vlan(destination):
+def build_alt_dest_vlan(destination, vmlist):
+    mapvirtualnetwork = {}
+    mapvnmetadata = {}
     targethost = client.EcxAPI(session, 'vsphere').get(url=destination['target']['href'])
-    networks = client.EcxAPI(session, 'vsphere').get(url=targethost['links']['networks']['href'])['networks']
-    return None
+    targetnetworks = client.EcxAPI(session, 'vsphere').get(url=targethost['links']['networks']['href'])['networks']
+    sourcenetworks = []
+    for tnw in targetnetworks:
+        if(tnw['name'] == options.pvlan):
+            recoverynetwork = tnw
+        elif(tnw['name'] == options.tvlan):
+            testnetwork = tnw
+    try:
+        recoverynetwork
+    except NameError:
+        logger.info("No prod. network found with provided name")
+        session.delete('endeavour/session/')
+        sys.exit(2)
+    try:
+        testnetwork
+    except NameError:
+        logger.info("No test network found with provided name")
+        session.delete('endeavour/session/')
+        sys.exit(2)
+    for vm in vmlist:
+        svmnets = client.EcxAPI(session, 'vsphere').get(url=vm['links']['networks']['href'])['networks']
+        for svmnet in svmnets:
+            if(svmnet not in sourcenetworks):
+                sourcenetworks.append(svmnet.copy())
+    for snw in sourcenetworks:
+        snwkey = snw['links']['self']['href'] + "/version/latest?time=0"
+        mapvirtualnetwork[snwkey] = {}
+        mapvirtualnetwork[snwkey]['recovery'] = recoverynetwork['links']['self']['href']
+        mapvirtualnetwork[snwkey]['test'] = testnetwork['links']['self']['href']
+        mapvnmetadata[snwkey] = {}
+        mapvnmetadata[snwkey]['source'] = {}
+        mapvnmetadata[snwkey]['recovery'] = {}
+        mapvnmetadata[snwkey]['test'] = {}
+        mapvnmetadata[snwkey]['source']['name'] = snw['name']
+        mapvnmetadata[snwkey]['source']['href'] = snwkey
+        mapvnmetadata[snwkey]['recovery']['name'] = recoverynetwork['name']
+        mapvnmetadata[snwkey]['recovery']['href'] = recoverynetwork['links']['self']['href']
+        mapvnmetadata[snwkey]['test']['name'] = testnetwork['name']
+        mapvnmetadata[snwkey]['test']['href'] = testnetwork['links']['self']['href']
+    mapvirtualnetwork['metadata'] = mapvnmetadata
+    return mapvirtualnetwork
+        
 
-def build_alt_dest_ds():
-    return None
+def build_alt_dest_ds(destination, vmlist):
+    mapRRPdatastore = {}
+    mapRRPdatastoremd = {}
+    targethost = client.EcxAPI(session, 'vsphere').get(url=destination['target']['href'])
+    targetdatastores = client.EcxAPI(session, 'vsphere').get(url=targethost['links']['datastores']['href'])['datastores']
+    sourcedatastores = []
+    for tds in targetdatastores:
+        if(tds['name'] == options.dsdest):
+            targetds = tds
+    try:
+        targetds
+    except NameError:
+        logger.info("No datastore found with provided name")
+        session.delete('endeavour/session/')
+        sys.exit(2)
+    for vm in vmlist:
+        svmdss = client.EcxAPI(session, 'vsphere').get(url=vm['links']['datastores']['href'])['datastores']
+        for svmds in svmdss:
+            if(svmds not in sourcedatastores):
+                sourcedatastores.append(svmds.copy())
+    for sds in sourcedatastores:
+        sdskey = sds['links']['self']['href'] + "/version/latest?time=0"
+        mapRRPdatastore[sdskey] = targetds['links']['self']['href']
+        mapRRPdatastoremd[sdskey] = {}
+        mapRRPdatastoremd[sdskey]['source'] = {}
+        mapRRPdatastoremd[sdskey]['source']['name'] = sds['name']
+        mapRRPdatastoremd[sdskey]['source']['href'] = sdskey
+        mapRRPdatastoremd[sdskey]['destination'] = {}
+        mapRRPdatastoremd[sdskey]['destination']['name'] = targetds['name']
+        mapRRPdatastoremd[sdskey]['destination']['href'] = targetds['links']['self']['href']
+    mapRRPdatastore['metadata'] = mapRRPdatastoremd
+    return mapRRPdatastore
 
 def update_policy(updatedpolicy):
     polid = updatedpolicy['id']
@@ -202,17 +274,26 @@ def update_policy(updatedpolicy):
     newpolicy = client.EcxAPI(session, 'policy').put(resid=polid, data=updatedpolicy)
     return newpolicy
 
-def run_restore_job(job, swfid=None):
-    run = client.JobAPI(session).run(job['id'])
+def run_restore_job(job):
+    if(options.mode.upper() == "TEST"):
+        run = client.JobAPI(session).run(job['id'], "start_test_iv")
+    elif(options.mode.upper() == "PRODUCTION"):
+        run = client.JobAPI(session).run(job['id'], "start_recovery_iv")
+    elif(options.mode.upper() == "CLONE"):
+        run = client.JobAPI(session).run(job['id'], "start_clone_iv")
     return run
 
 def update_policy_and_run_restore():
     job = get_restore_job()
     policy = get_policy_for_job(job)
-    vmlist = get_info_for_vms()
-    sourceinfo = build_source_info_for_vms(vmlist)
-    updatedpolicy = build_policy_for_update(policy, sourceinfo, vmlist)
-    #prettyprint(updatedpolicy)
+    if(options.vms is not None):
+        vmlist = get_info_for_vms()
+        sourceinfo = build_source_info_for_vms(vmlist)
+        updatedpolicy = build_policy_for_update(policy, sourceinfo, vmlist)
+        newpolicy = update_policy(updatedpolicy)
+        logger.info("Updating job %s" % job['name'])
+    logger.info("Running job %s" % job['name'])
+    run_restore_job(job)
 
 session = client.EcxSession(options.host, options.username, options.password)
 session.login()
