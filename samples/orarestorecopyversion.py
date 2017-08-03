@@ -75,8 +75,8 @@ def get_version_for_policy(policy):
                 return version
     # match on dates and backup copy name
     elif (options.end is not None and options.start is not None and options.backup is not None):
-        start = int(datetime.datetime.strptime(options.start, '%m/%d/%Y %M:%S').strftime("%s"))*1000
-        end = int(datetime.datetime.strptime(options.end, '%m/%d/%Y %M:%S').strftime("%s"))*1000
+        start = int(datetime.datetime.strptime(options.start, '%m/%d/%Y %H:%M').strftime("%s"))*1000
+        end = int(datetime.datetime.strptime(options.end, '%m/%d/%Y %H:%M').strftime("%s"))*1000
         versionsurl = source['links']['versions']['href']
         versions = client.EcxAPI(session, 'oracle').get(url=versionsurl)['versions']
         for vers in versions:
@@ -90,8 +90,8 @@ def get_version_for_policy(policy):
                 return version
     # match on dates no copy named supplied    
     else:
-        start = int(datetime.datetime.strptime(options.start, '%m/%d/%Y %M:%S').strftime("%s"))*1000
-        end = int(datetime.datetime.strptime(options.end, '%m/%d/%Y %M:%S').strftime("%s"))*1000
+        start = int(datetime.datetime.strptime(options.start, '%m/%d/%Y %H:%M').strftime("%s"))*1000
+        end = int(datetime.datetime.strptime(options.end, '%m/%d/%Y %H:%M').strftime("%s"))*1000
         versionsurl = source['links']['versions']['href']
         versions = client.EcxAPI(session, 'oracle').get(url=versionsurl)['versions']
         for vers in versions:

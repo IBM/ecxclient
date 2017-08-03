@@ -87,11 +87,13 @@ def build_source_info_for_vms(vmlist):
     return source
 
 def build_version_for_vm(vm):
-    vsphere = client.EcxAPI(session, 'vsphere').get(url=vm['links']['vsphere']['href'])
+    vmurl = vm['links']['self']['href']+"?time=0"
+    vmurlarray = [vmurl]
+    assdata = {'associatedWith': vmurlarray,"resourceType": "site"}
+    association = client.EcxAPI(session, 'vsphere').post(path="query", data=assdata)['sites'][0]
     versionurl = vm['links']['self']['href']+"/version"
-    versionparams = {'time': 0, 'filter': '[{"property":"siteId","op":"=","value":"%s"}]'%vsphere['siteId']}
+    versionparams = {'time': 0, 'filter': '[{"property":"siteId","op":"=","value":"%s"}]'%association['id']}
     versions = client.EcxAPI(session, 'vsphere').get(url=versionurl, params=versionparams)['versions']
-
     version = {}
     metadata = {}
     # no copy filters supplied use latest
@@ -104,18 +106,21 @@ def build_version_for_vm(vm):
         return version
     # match on dates
     else:
-        start = int(datetime.datetime.strptime(options.start, '%m/%d/%Y %M:%S').strftime("%s"))*1000
-        end = int(datetime.datetime.strptime(options.end, '%m/%d/%Y %M:%S').strftime("%s"))*1000
+        start = int(datetime.datetime.strptime(options.start, '%m/%d/%Y %H:%M').strftime("%s"))*1000
+        end = int(datetime.datetime.strptime(options.end, '%m/%d/%Y %H:%M').strftime("%s"))*1000
         for vers in versions:
             prottime = int(vers['protectionInfo']['protectionTime'])
-            if (prottime > start and prottime < end):
+            print "Start time: " + str(start)
+            print "End time: " + str(end)
+            print "Vers time: " + str(vers['protectionInfo']['protectionTime'])
+            if (start < prottime and prottime < end):
                 version['href'] = vers['links']['self']['href']
                 metadata['id'] = vers['id']
                 metadata['name'] = time.ctime(prottime/1000)[4:].replace("  "," ")
                 version['metadata'] = metadata
                 logger.info("Using backup copy version from: %s" % metadata['name'])
                 return version
-    logger.info("No backup copy found with provided dates or backup copy name")
+    logger.info("No backup copy found with provided dates")
     session.delete('endeavour/session/')
     sys.exit(2)
 
@@ -147,7 +152,7 @@ def build_policy_for_update(policy, sourceinfo, vmlist):
 def build_alt_dest(policy, vmlist):
     destination = {}
     destination['target'] = build_alt_dest_target()
-    destination['mapvirtualnetwork'] = build_alt_dest_vlan()
+    destination['mapvirtualnetwork'] = build_alt_dest_vlan(destination)
     destination['mapRRPdatastore'] = build_alt_dest_ds()
     destination['mapsubnet'] = {"systemDefined": True}
     return destination
@@ -155,6 +160,7 @@ def build_alt_dest(policy, vmlist):
 def build_alt_dest_target():
     target = {}
     targetmd = {}
+    targethost = ""
     vspheres = client.EcxAPI(session, 'vsphere').list()
     for vsphere in vspheres:
         hosts = client.EcxAPI(session, 'vsphere').get(url=vsphere['links']['hosts']['href'])['hosts']
@@ -164,6 +170,10 @@ def build_alt_dest_target():
                 targetvsphere = vsphere
                 targetdc = client.EcxAPI(session, 'vsphere').get(url=host['links']['datacenter']['href'])
                 break
+    if(targethost == ""):
+        logger.info("No target host found with name provided")
+        session.delete('endeavour/session/')
+        sys.exit(2)
     target['href'] = targethost['links']['self']['href']
     target['resourceType'] = targethost['resourceType']
     targetmd['path'] = targetvsphere['siteName'] + ":" + targetvsphere['siteId'] + "/" + targethost['name'] + ":"
@@ -172,7 +182,9 @@ def build_alt_dest_target():
     target['metadata'] = targetmd
     return target
 
-def build_alt_dest_vlan():
+def build_alt_dest_vlan(destination):
+    targethost = client.EcxAPI(session, 'vsphere').get(url=destination['target']['href'])
+    networks = client.EcxAPI(session, 'vsphere').get(url=targethost['links']['networks']['href'])['networks']
     return None
 
 def build_alt_dest_ds():
@@ -200,7 +212,7 @@ def update_policy_and_run_restore():
     vmlist = get_info_for_vms()
     sourceinfo = build_source_info_for_vms(vmlist)
     updatedpolicy = build_policy_for_update(policy, sourceinfo, vmlist)
-    prettyprint(updatedpolicy)
+    #prettyprint(updatedpolicy)
 
 session = client.EcxSession(options.host, options.username, options.password)
 session.login()

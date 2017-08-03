@@ -130,8 +130,8 @@ def find_version_for_parameters(versions, source):
                 return version
     # match on dates and backup copy name
     elif (options.end is not None and options.start is not None and options.backup is not None):
-        start = int(datetime.datetime.strptime(options.start, '%m/%d/%Y %M:%S').strftime("%s"))*1000
-        end = int(datetime.datetime.strptime(options.end, '%m/%d/%Y %M:%S').strftime("%s"))*1000
+        start = int(datetime.datetime.strptime(options.start, '%m/%d/%Y %H:%M').strftime("%s"))*1000
+        end = int(datetime.datetime.strptime(options.end, '%m/%d/%Y %H:%M').strftime("%s"))*1000
         for vers in versions:
             prottime = int(vers['protectionInfo']['protectionTime'])
             if (prottime > start and prottime < end and options.backup.upper() == vers['protectionInfo']['policyName'].upper()):
@@ -143,8 +143,8 @@ def find_version_for_parameters(versions, source):
                 return version
     # match on dates no copy named supplied    
     else:
-        start = int(datetime.datetime.strptime(options.start, '%m/%d/%Y %M:%S').strftime("%s"))*1000
-        end = int(datetime.datetime.strptime(options.end, '%m/%d/%Y %M:%S').strftime("%s"))*1000
+        start = int(datetime.datetime.strptime(options.start, '%m/%d/%Y %H:%M').strftime("%s"))*1000
+        end = int(datetime.datetime.strptime(options.end, '%m/%d/%Y %H:%M').strftime("%s"))*1000
         for vers in versions:
             prottime = int(vers['protectionInfo']['protectionTime'])
             if (prottime > start and prottime < end):
