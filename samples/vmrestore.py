@@ -5,9 +5,9 @@
 # --desttype corresponds to the type of restore being performed
 #       1 = use orig host/cluster with sys defined IP (default)
 #       2 = use orig host/cluster with original IP
-#       3 = use alternate host/cluster (requires destination hostdest,
+#       3 = use alternate host/cluster (requires hostdest,
 #           pvlan, tvlan, and dsdest to be defined)
-#           Note: all source datastores will be mapped to single defined target datastore
+#           Note: all source datastores and networks will be mapped to a single target
 # --vms is optional, job will run as-is without it, use commas to seperate list of VMs
 # --start and --end determine time window of copy to use, latest will be used if blank
 #
@@ -150,14 +150,21 @@ def build_policy_for_update(policy, sourceinfo, vmlist):
     return policy
 
 def build_alt_dest(policy, vmlist):
+    vmurls = []
+    # need to call query api at this point to get proper href format for mapping def
+    for vm in vmlist:
+        vmurls.append(copy.deepcopy(vm['links']['self']['href']+"/version/latest"))
+    qd = {'associatedWith': vmurls,"resourceType": "vm"}
+    vmqlist = client.EcxAPI(session, 'vsphere').post(path="query", data=qd)['vms']
     destination = {}
     destination['target'] = build_alt_dest_target()
-    destination['mapvirtualnetwork'] = build_alt_dest_vlan(destination, vmlist)
-    destination['mapRRPdatastore'] = build_alt_dest_ds(destination, vmlist)
+    destination['mapvirtualnetwork'] = build_alt_dest_vlan(destination, vmqlist)
+    destination['mapRRPdatastore'] = build_alt_dest_ds(destination, vmqlist)
     destination['mapsubnet'] = {"systemDefined": True}
     return destination
 
 def build_alt_dest_target():
+    logger.info("Building alternate host destination")
     target = {}
     targetmd = {}
     targethost = ""
@@ -182,7 +189,8 @@ def build_alt_dest_target():
     target['metadata'] = targetmd
     return target
 
-def build_alt_dest_vlan(destination, vmlist):
+def build_alt_dest_vlan(destination, vmqlist):
+    logger.info("Building alternate VLAN")
     mapvirtualnetwork = {}
     mapvnmetadata = {}
     targethost = client.EcxAPI(session, 'vsphere').get(url=destination['target']['href'])
@@ -205,13 +213,13 @@ def build_alt_dest_vlan(destination, vmlist):
         logger.info("No test network found with provided name")
         session.delete('endeavour/session/')
         sys.exit(2)
-    for vm in vmlist:
-        svmnets = client.EcxAPI(session, 'vsphere').get(url=vm['links']['networks']['href'])['networks']
-        for svmnet in svmnets:
-            if(svmnet not in sourcenetworks):
-                sourcenetworks.append(svmnet.copy())
+    vmurls = []
+    for vm in vmqlist:
+        vmurls.append(copy.deepcopy(vm['links']['self']['href']))
+    querydata = {'associatedWith': vmurls,"resourceType": "network"}
+    sourcenetworks = client.EcxAPI(session, 'vsphere').post(path="query", data=querydata)['networks']
     for snw in sourcenetworks:
-        snwkey = snw['links']['self']['href'] + "/version/latest?time=0"
+        snwkey = snw['links']['self']['href']
         mapvirtualnetwork[snwkey] = {}
         mapvirtualnetwork[snwkey]['recovery'] = recoverynetwork['links']['self']['href']
         mapvirtualnetwork[snwkey]['test'] = testnetwork['links']['self']['href']
@@ -229,12 +237,12 @@ def build_alt_dest_vlan(destination, vmlist):
     return mapvirtualnetwork
         
 
-def build_alt_dest_ds(destination, vmlist):
+def build_alt_dest_ds(destination, vmqlist):
+    logger.info("Building alternate datastore")
     mapRRPdatastore = {}
     mapRRPdatastoremd = {}
     targethost = client.EcxAPI(session, 'vsphere').get(url=destination['target']['href'])
     targetdatastores = client.EcxAPI(session, 'vsphere').get(url=targethost['links']['datastores']['href'])['datastores']
-    sourcedatastores = []
     for tds in targetdatastores:
         if(tds['name'] == options.dsdest):
             targetds = tds
@@ -244,13 +252,13 @@ def build_alt_dest_ds(destination, vmlist):
         logger.info("No datastore found with provided name")
         session.delete('endeavour/session/')
         sys.exit(2)
-    for vm in vmlist:
-        svmdss = client.EcxAPI(session, 'vsphere').get(url=vm['links']['datastores']['href'])['datastores']
-        for svmds in svmdss:
-            if(svmds not in sourcedatastores):
-                sourcedatastores.append(svmds.copy())
+    vmurls = []
+    for vm in vmqlist:
+        vmurls.append(copy.deepcopy(vm['links']['self']['href']))
+    querydata = {'associatedWith': vmurls,"resourceType": "datastore"}
+    sourcedatastores = client.EcxAPI(session, 'vsphere').post(path="query", data=querydata)['datastores']
     for sds in sourcedatastores:
-        sdskey = sds['links']['self']['href'] + "/version/latest?time=0"
+        sdskey = sds['links']['self']['href']
         mapRRPdatastore[sdskey] = targetds['links']['self']['href']
         mapRRPdatastoremd[sdskey] = {}
         mapRRPdatastoremd[sdskey]['source'] = {}
@@ -271,6 +279,7 @@ def update_policy(updatedpolicy):
     del updatedpolicy['logicalDelete']
     del updatedpolicy['rbacPath']
     del updatedpolicy['tenantId']
+    #prettyprint(updatedpolicy)
     newpolicy = client.EcxAPI(session, 'policy').put(resid=polid, data=updatedpolicy)
     return newpolicy
 
