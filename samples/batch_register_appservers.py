@@ -202,7 +202,7 @@ def register_provider():
 
 def read_csv():
     with open(opt.csv) as csvfile:
-        provs = csv.DictReader(csvfile, delimiter='\t')
+        provs = csv.DictReader(csvfile, delimiter=',')
         for prov in provs:
             if(prov['provider name'] == ""):
                 options.provname = None
