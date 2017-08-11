@@ -39,9 +39,13 @@ parser.add_option("--hostdest", dest="hostdest", help="Destination host/cluster 
 parser.add_option("--pvlan", dest="pvlan", help="Destination prod. VLAN (requireed for type 3)")
 parser.add_option("--tvlan", dest="tvlan", help="Destination test VLAN (requireed for type 3)")
 parser.add_option("--dsdest", dest="dsdest", help="Destination datastore (requireed for type 3)")
+parser.add_option("--cancel", dest="cancel", help="Set to \"True\" to cancel restore job")
+
 (options, args) = parser.parse_args()
 if(options.vms is not None):
     options.vms = options.vms.split(",")
+if(options.cancel is None):
+    options.cancel = ""
 
 def prettyprint(indata):
     print json.dumps(indata, sort_keys=True,indent=4, separators=(',', ': '))
@@ -101,7 +105,7 @@ def build_version_for_vm(vm):
     metadata = {}
     # no copy filters supplied use latest
     if (options.end is None or options.start is None):
-        version['href'] = vm['links']['self']['href']+"/version/latest"
+        version['href'] = vm['links']['self']['href']+"/version/latest?time=0"
         metadata['id'] = "latest"
         metadata['name'] = "Use Latest"
         version['metadata'] = metadata
@@ -283,7 +287,22 @@ def update_policy(updatedpolicy):
     newpolicy = client.EcxAPI(session, 'policy').put(resid=polid, data=updatedpolicy)
     return newpolicy
 
+def get_pending_job_session(job):
+    sessionurl = job['links']['pendingjobsessions']['href']
+    jobsession = client.EcxAPI(session, 'jobsession').get(url=sessionurl)
+    if (len(jobsession['sessions']) < 1):
+        logger.info("No pending job sessions found.")
+        session.delete('endeavour/session/')
+        sys.exit(2)
+    return jobsession['sessions'][0]
+
 def run_restore_job(job):
+    if(options.cancel.upper() == "TRUE"):
+        jobsession = get_pending_job_session(job)
+        logger.info("Cleaning up job %s" % job['name'])
+        sessioninfo = jobsession['id'] + "?action=resume&actionname=end_iv"
+        return client.EcxAPI(session, 'jobsession').post(path=sessioninfo)
+    logger.info("Running job %s" % job['name'])
     if(options.mode.upper() == "TEST"):
         run = client.JobAPI(session).run(job['id'], "start_test_iv")
     elif(options.mode.upper() == "PRODUCTION"):
@@ -294,14 +313,13 @@ def run_restore_job(job):
 
 def update_policy_and_run_restore():
     job = get_restore_job()
-    policy = get_policy_for_job(job)
-    if(options.vms is not None):
+    if(options.vms is not None and options.cancel.upper() != "TRUE"):
+        policy = get_policy_for_job(job)
         vmlist = get_info_for_vms()
         sourceinfo = build_source_info_for_vms(vmlist)
         updatedpolicy = build_policy_for_update(policy, sourceinfo, vmlist)
         newpolicy = update_policy(updatedpolicy)
         logger.info("Updating job %s" % job['name'])
-    logger.info("Running job %s" % job['name'])
     run_restore_job(job)
 
 session = client.EcxSession(options.host, options.username, options.password)
