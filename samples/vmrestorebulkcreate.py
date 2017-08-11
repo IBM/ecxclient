@@ -85,7 +85,7 @@ def build_version_for_vm(vm, jobparams):
     metadata = {}
     # no copy filters supplied use latest
     if (jobparams['end'] is None or jobparams['start'] is None or jobparams['end'] == "" or jobparams['start'] == ""):
-        version['href'] = vm['links']['self']['href']+"/version/latest"
+        version['href'] = vm['links']['self']['href']+"/version/latest?time=0"
         metadata['id'] = "latest"
         metadata['name'] = "Use Latest"
         version['metadata'] = metadata
