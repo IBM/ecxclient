@@ -1,6 +1,5 @@
 #
 # Script to bulk create VMWare backup jobs from a CSV
-# --template is always required (existing back up job name to use as template)
 # --csv is the full path to the csv template (ex. /tmp/vmbackups.csv)
 #
 
