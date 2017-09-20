@@ -39,6 +39,7 @@ parser.add_option("--hostdest", dest="hostdest", help="Destination host/cluster 
 parser.add_option("--pvlan", dest="pvlan", help="Destination prod. VLAN (requireed for type 3)")
 parser.add_option("--tvlan", dest="tvlan", help="Destination test VLAN (requireed for type 3)")
 parser.add_option("--dsdest", dest="dsdest", help="Destination datastore (requireed for type 3)")
+parser.add_option("--folder", dest="folder", help="Destination folder (optional) (ex. /testvms)")
 parser.add_option("--cancel", dest="cancel", help="Set to \"True\" to cancel restore job")
 
 (options, args) = parser.parse_args()
@@ -165,10 +166,12 @@ def build_alt_dest(policy, vmlist):
     destination['mapvirtualnetwork'] = build_alt_dest_vlan(destination, vmqlist)
     destination['mapRRPdatastore'] = build_alt_dest_ds(destination, vmqlist)
     destination['mapsubnet'] = {"systemDefined": True}
+    if(options.folder is not None and options.folder.startswith('/')):
+        destination['vmfolderpath'] = options.folder
     return destination
 
 def build_alt_dest_target():
-    logger.info("Building alternate host destination")
+    logger.info("Building alternate host/cluster destination")
     target = {}
     targetmd = {}
     targethost = ""
@@ -181,6 +184,14 @@ def build_alt_dest_target():
                 targetvsphere = vsphere
                 targetdc = client.EcxAPI(session, 'vsphere').get(url=host['links']['datacenter']['href'])
                 break
+        if(targethost == ""):
+            clusters = client.EcxAPI(session, 'vsphere').get(url=vsphere['links']['clusters']['href'])['clusters']
+            for cluster in clusters:
+                if(cluster['name'] == options.hostdest):
+                    targethost = cluster
+                    targetvsphere = vsphere
+                    targetdc = client.EcxAPI(session, 'vsphere').get(url=host['links']['datacenter']['href'])
+                    break
     if(targethost == ""):
         logger.info("No target host found with name provided")
         session.delete('endeavour/session/')
@@ -203,7 +214,8 @@ def build_alt_dest_vlan(destination, vmqlist):
     for tnw in targetnetworks:
         if(tnw['name'] == options.pvlan):
             recoverynetwork = tnw
-        elif(tnw['name'] == options.tvlan):
+    for tnw in targetnetworks:
+        if(tnw['name'] == options.tvlan):
             testnetwork = tnw
     try:
         recoverynetwork
