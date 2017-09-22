@@ -45,3 +45,5 @@ Known Issues
 
 - When "https" URL is used, there are some warnings displayed on the
   console. We need to find a way to get rid of them.
+
+- Need to add job session cleanup actions to the JobAPI
