@@ -238,7 +238,15 @@ class JobAPI(EcxAPI):
             else:
                 reqdata["actionname"] = workflows[0]['value']
 
-        return self.ecx_session.post(url=start_link['href'], data=reqdata)
+        jobrun = self.ecx_session.post(url=start_link['href'], data=reqdata)
+
+        # The session ID corresponding to the latest run is not sent back
+        # in response. Rather, we need to query to get it.
+        active_sessions = self.ecx_session.get(url=jobrun['links']['activejobsessions']['href'])
+
+        pretty_print(active_sessions)
+
+        return jobrun
 
     def get_log_entries(self, jobsession_id, page_size=1000, page_start_index=0):
         logging.info("*** get_log_entries: jobsession_id = %s, page_start_index: %s ***" % (jobsession_id, page_start_index))
