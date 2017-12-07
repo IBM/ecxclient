@@ -243,8 +243,11 @@ class JobAPI(EcxAPI):
         # The session ID corresponding to the latest run is not sent back
         # in response. Rather, we need to query to get it.
         active_sessions = self.ecx_session.get(url=jobrun['links']['activejobsessions']['href'])
-
         pretty_print(active_sessions)
+
+        # Ideally, backend should have returned the job session ID corresponding to
+        # current run but it doesn't so, we mimic that behaviour here.
+        jobrun["curr_jobsession_id"] = active_sessions["sessions"][0]["id"]
 
         return jobrun
 

@@ -29,7 +29,8 @@ def monitor(jobapi, job, interval_sec=10):
     active = False
     counter = 0
 
-    jobsession_id = int(job['lastrun']['sessionId'])
+    # jobsession_id = int(job['lastrun']['sessionId'])
+    jobsession_id = int(job['curr_jobsession_id'])
     log_entries_index = 0
     while True:
         if active and (status == "PENDING"):
