@@ -247,9 +247,18 @@ class JobAPI(EcxAPI):
 
         # Ideally, backend should have returned the job session ID corresponding to
         # current run but it doesn't so, we mimic that behaviour here.
-        jobrun["curr_jobsession_id"] = active_sessions["sessions"][0]["id"]
+        # It seems that GET call above may not return any entries which could
+        # be a timing issue. We need to retry.
+        for i in range(5):
+            try:
+                jobrun["curr_jobsession_id"] = active_sessions["sessions"][0]["id"]
+                return jobrun
+            except IndexError:
+                if i < 4:
+                    logging.info("Error in getting active job sessions, will retry...")
+                    time.sleep(2)
 
-        return jobrun
+        raise Exception("Could not find job session ID...")
 
     def get_log_entries(self, jobsession_id, page_size=1000, page_start_index=0):
         logging.info("*** get_log_entries: jobsession_id = %s, page_start_index: %s ***" % (jobsession_id, page_start_index))
