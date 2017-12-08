@@ -252,13 +252,15 @@ class JobAPI(EcxAPI):
         for i in range(5):
             try:
                 jobrun["curr_jobsession_id"] = active_sessions["sessions"][0]["id"]
-                return jobrun
             except IndexError:
                 if i < 4:
                     logging.info("Error in getting active job sessions, will retry...")
                     time.sleep(2)
 
-        raise Exception("Could not find job session ID...")
+        # In case, we failed in finding job session ID, we don't throw exception
+        # but just return job object without that information. It is upto the
+        # callers to check for this condition and act accordingly.
+        return jobrun
 
     def get_log_entries(self, jobsession_id, page_size=1000, page_start_index=0):
         logging.info("*** get_log_entries: jobsession_id = %s, page_start_index: %s ***" % (jobsession_id, page_start_index))
