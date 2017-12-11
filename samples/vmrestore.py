@@ -70,11 +70,18 @@ def get_info_for_vms():
     allvms = []
     selectedvms = []
     for vsphere in vspheres:
-        vspherevms = client.EcxAPI(session, 'vsphere').get(url=vsphere['links']['vms']['href'])['vms']
-        allvms.extend(vspherevms)
+        try:
+            vspherevms = client.EcxAPI(session, 'vsphere').get(url=vsphere['links']['vms']['href'])['vms']
+            allvms.extend(vspherevms)
+        except client.requests.exceptions.HTTPError as err:
+            pass
     for vm in allvms:
         if (vm['name'] in options.vms):
             selectedvms.append(copy.deepcopy(vm))
+    if(len(selectedvms) < 1):
+        logger.info("No VMs found with provided name(s)")
+        session.delete('endeavour/session/')
+        sys.exit(2)
     return selectedvms
 
 def build_source_info_for_vms(vmlist):
@@ -177,7 +184,10 @@ def build_alt_dest_target():
     targethost = ""
     vspheres = client.EcxAPI(session, 'vsphere').list()
     for vsphere in vspheres:
-        hosts = client.EcxAPI(session, 'vsphere').get(url=vsphere['links']['hosts']['href'])['hosts']
+        try:
+            hosts = client.EcxAPI(session, 'vsphere').get(url=vsphere['links']['hosts']['href'])['hosts']
+        except client.requests.exceptions.HTTPError as err:
+            continue
         for host in hosts:
             if(host['name'] == options.hostdest):
                 targethost = host

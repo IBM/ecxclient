@@ -75,9 +75,6 @@ def validate_input():
     if (options.provtype == "osvolume" and options.provos is None):
         print "Provider OS is required if type is osvolume"
         sys.exit(2)
-    elif (options.provos.upper() == "WINDOWS" or options.provos.upper() == "LINUX"
-          or options.provos.upper() == "AIX"):
-        options.provos = options.provos.lower()
     elif (options.provtype.upper() == "ORACLE" or options.provtype.upper() == "SAPHANA"
           or options.provtype.upper() == "CACHE"):
         options.provos = "linux"
