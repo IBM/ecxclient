@@ -13,7 +13,7 @@ from ecxclient.sdk.client import JobAPI
 def print_job_log(log_entries):
     for entry in log_entries:
         logtype = entry['type']
-        line = '%s %s' % (time.ctime(entry['logTime']/1000).strip(), entry['message'])
+        line = '%s %s\n' % (time.ctime(entry['logTime']/1000).strip(), entry['message'])
 
         if logtype == 'ERROR':
             click.secho(line, fg='red')
