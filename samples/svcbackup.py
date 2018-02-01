@@ -3,6 +3,7 @@
 # --backup is always required (existing back up job name)
 # --vols is optional, job will run as-is without it, use commas to seperate list of volumes
 # --sla is optional, must be selected as one of the optional SLAs in job defintion
+# --run is optional, if set to true job will be run after updating
 #
 
 import json
@@ -28,6 +29,8 @@ parser.add_option("--sla", dest="sla", help="SLA Policy to use for backup (optio
 (options, args) = parser.parse_args()
 if(options.vols is not None):
     options.vols = options.vols.split(",")
+if(options.run is None):
+    options.run = ""
 
 def prettyprint(indata):
     print json.dumps(indata, sort_keys=True,indent=4, separators=(',', ': '))
@@ -123,12 +126,13 @@ def update_policy_and_run_backup():
         updatedpolicy = build_policy_for_update(policy, sourceinfo)
         newpolicy = update_policy(updatedpolicy)
         logger.info("Updating job %s" % job['name'])
-    logger.info("Running job %s" % job['name'])
-    if(options.sla is not None):
-        swfid = get_swf_id(policy)
-        run_backup_job(job, swfid)
-    else:
-        run_backup_job(job)
+    if(options.run.upper() == "TRUE"):
+        logger.info("Running job %s" % job['name'])
+        if(options.sla is not None):
+            swfid = get_swf_id(policy)
+            run_backup_job(job, swfid)
+        else:
+            run_backup_job(job)
 
 
 session = client.EcxSession(options.host, options.username, options.password)
