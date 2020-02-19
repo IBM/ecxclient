@@ -1,0 +1,3 @@
+name,site,host,port,user
+netapp1,bangor,172.20.49.50,443,some user
+netapp2,portland,172.20.49.51,80,otheruser
